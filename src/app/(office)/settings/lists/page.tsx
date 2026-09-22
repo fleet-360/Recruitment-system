@@ -9,7 +9,7 @@ import { AddValueForm, EditValueForm } from "./value-forms";
 
 const hints: Partial<Record<ListKey, string>> = {
   candidate_status: "הסדר כאן הוא סדר השלבים בסטפר. הערך הראשון ניתן אוטומטית למועמד חדש.",
-  placement_status: "הסדר כאן הוא סדר השלבים בתהליך ההשמה.",
+  placement_status: "הסדר כאן הוא סדר השלבים בתהליך ההשמה. \"נדחה\" ו\"פוטר\" נקבעים מחלון הדחייה/הסיום בהשמה ולא מהסטפר.",
   rejection_reason: "\"דורש פירוט\" מחייב טקסט חופשי בעת דחייה.",
   city: "כל עיר משויכת לאזור — הפילוח בתפוצה ובסינון מתבסס על זה.",
 };
@@ -78,13 +78,17 @@ export default async function ListsSettingsPage({ searchParams }: PageProps<"/se
               )}
               <EditValueForm value={v} listKey={listKey} regions={v.parent && v.parentId ? withCurrent(regions, { id: v.parentId, label: v.parent.label }) : regions} />
               {!v.isActive && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs">לא פעיל</span>}
-              <form action={toggleActive.bind(null, v.id)}>
-                <button
-                  className={`rounded-xl px-3 py-2 text-sm ${v.isActive ? "text-slate-500 hover:bg-red-50 hover:text-red-600" : "text-emerald-700 hover:bg-emerald-50"}`}
-                >
-                  {v.isActive ? "השבתה" : "הפעלה"}
-                </button>
-              </form>
+              {v.systemKey ? (
+                <span className="px-3 text-xs text-slate-400" title="המערכת משתמשת בערך הזה — אפשר לשנות את שמו, לא להשבית">ערך מערכת</span>
+              ) : (
+                <form action={toggleActive.bind(null, v.id)}>
+                  <button
+                    className={`rounded-xl px-3 py-2 text-sm ${v.isActive ? "text-slate-500 hover:bg-red-50 hover:text-red-600" : "text-emerald-700 hover:bg-emerald-50"}`}
+                  >
+                    {v.isActive ? "השבתה" : "הפעלה"}
+                  </button>
+                </form>
+              )}
             </li>
           ))}
           {values.length === 0 && <li className="py-6 text-center text-sm text-slate-400">הרשימה ריקה</li>}

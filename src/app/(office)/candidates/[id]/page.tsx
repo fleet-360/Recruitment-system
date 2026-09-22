@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { ArrowLeftRight, FileText, MessageCircle, Phone, StickyNote } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeftRight, Briefcase, Coins, FileText, MessageCircle, Phone, StickyNote } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
 import { candidateWhere } from "@/lib/access";
@@ -10,13 +11,15 @@ import { addNote, setCandidateStatus } from "../actions";
 import { DetailsForm } from "./details-form";
 import { FileUpload } from "./file-upload";
 import { DeleteFileButton } from "./delete-file-button";
+import { PlacementDrawer } from "../../placements/drawer";
 
 const when = (d: Date) => d.toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" });
 
 // S-05 candidate card
-export default async function CandidatePage({ params }: PageProps<"/candidates/[id]">) {
+export default async function CandidatePage({ params, searchParams }: PageProps<"/candidates/[id]">) {
   const user = await requireOffice();
   const { id } = await params;
+  const openId = (await searchParams).p;
 
   const candidate = await db.candidate.findFirst({
     where: { AND: [{ id }, await candidateWhere(user)] },
@@ -26,7 +29,14 @@ export default async function CandidatePage({ params }: PageProps<"/candidates/[
       source: { select: { id: true, label: true } },
       languages: { select: { language: { select: { id: true, label: true } } } },
       files: { orderBy: { uploadedAt: "desc" } },
-      activities: { orderBy: { createdAt: "desc" }, include: { user: { select: { name: true, email: true } } } },
+      placements: {
+        orderBy: { createdAt: "desc" },
+        include: { status: { select: { label: true, systemKey: true } }, job: { select: { title: true, company: { select: { name: true } }, branch: { select: { name: true } } } } },
+      },
+      activities: {
+        orderBy: { createdAt: "desc" },
+        include: { user: { select: { name: true, email: true } }, placement: { select: { job: { select: { title: true } } } } },
+      },
     },
   });
   if (!candidate) notFound();
@@ -90,6 +100,24 @@ export default async function CandidatePage({ params }: PageProps<"/candidates/[
 
         <div className="space-y-4 lg:col-span-2">
           <section className="glass space-y-3 p-5">
+            <h2 className="font-bold">השמות</h2>
+            <ul className="space-y-1 text-sm">
+              {candidate.placements.map((p) => (
+                <li key={p.id}>
+                  <Link href={`/candidates/${id}?p=${p.id}`} scroll={false} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/60">
+                    <Briefcase size={16} className="shrink-0 text-violet-500" />
+                    <span className="flex-1">
+                      <span className="font-bold">{p.job.title}</span> <span className="text-slate-500">· {p.job.company.name} · {p.job.branch.name}</span>
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs whitespace-nowrap ${p.status?.systemKey ? "bg-red-50 text-red-600" : "bg-violet-50 text-violet-700"}`}>{p.status?.label}</span>
+                  </Link>
+                </li>
+              ))}
+              {candidate.placements.length === 0 && <li className="text-slate-400">עדיין לא שויך למשרה — השיוך נעשה מדף המשרה</li>}
+            </ul>
+          </section>
+
+          <section className="glass space-y-3 p-5">
             <h2 className="font-bold">קבצים</h2>
             <FileUpload candidateId={id} />
             <ul className="space-y-1 text-sm">
@@ -115,10 +143,11 @@ export default async function CandidatePage({ params }: PageProps<"/candidates/[
             <ul className="max-h-96 space-y-2 overflow-y-auto text-sm">
               {candidate.activities.map((a) => (
                 <li key={a.id} className="flex gap-2 rounded-xl bg-white/60 p-3">
-                  {a.type === "status_change" ? <ArrowLeftRight size={16} className="mt-0.5 shrink-0 text-violet-500" /> : <StickyNote size={16} className="mt-0.5 shrink-0 text-amber-500" />}
+                  {a.type === "status_change" ? <ArrowLeftRight size={16} className="mt-0.5 shrink-0 text-violet-500" /> : a.type === "billing" ? <Coins size={16} className="mt-0.5 shrink-0 text-emerald-500" /> : <StickyNote size={16} className="mt-0.5 shrink-0 text-amber-500" />}
                   <div className="flex-1">
                     <p className="whitespace-pre-wrap">
-                      {a.type === "status_change" ? `סטטוס: ${a.fromValue ?? "—"} ← ${a.toValue}` : a.body}
+                      {a.placement && <span className="font-medium text-violet-700">{a.placement.job.title}: </span>}
+                      {a.type === "status_change" ? `סטטוס: ${a.fromValue ?? "—"} ← ${a.toValue}${a.body ? ` (${a.body})` : ""}` : a.body}
                     </p>
                     <p className="text-xs text-slate-400">
                       {a.user?.name ?? a.user?.email ?? "מערכת"} · {when(a.createdAt)}
@@ -131,6 +160,8 @@ export default async function CandidatePage({ params }: PageProps<"/candidates/[
           </section>
         </div>
       </div>
+
+      {typeof openId === "string" && <PlacementDrawer placementId={openId} closeHref={`/candidates/${id}`} />}
     </>
   );
 }

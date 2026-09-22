@@ -1,6 +1,7 @@
 // Fictional demo data for local testing — never run in production (only with `npm run seed:demo`).
 // Every feature step adds its own section here. Phones use the 050-555xxxx range; names are made up.
 import type { PrismaClient } from "../src/generated/prisma/client";
+import { addDays, cancelledBy, planInstallments, today, type FeeType } from "../src/lib/fees";
 
 const DAY = 86_400_000;
 
@@ -163,10 +164,68 @@ async function seedCompanies(db: PrismaClient, adminId: string) {
   console.log(`demo: ${companies.length} companies with branches, terms and jobs`);
 }
 
+// ───── Step: placements + installments — one per stage, plus the edge cases
+const placements: { phone: string; job: string; status: string; startDaysAgo?: number; endDaysAgo?: number; reason?: string }[] = [
+  { phone: "0505550101", job: "בריסטה", status: "נשלחו קורות חיים" },
+  { phone: "0505550102", job: "מלקט/ת במחסן", status: "ראיונות" },
+  { phone: "0505550105", job: "מלקט/ת במחסן", status: "תקופת ניסיון", startDaysAgo: 20 }, // % of salary: 1st installment overdue
+  { phone: "0505550111", job: "נהג/ת מלגזה", status: "התקבל סופית", startDaysAgo: 45 }, // fixed fee
+  { phone: "0505550104", job: "חדרן/ית", status: "פוטר", startDaysAgo: 60, endDaysAgo: 10, reason: "עזב אחרי חודשיים" }, // future installment cancelled
+  { phone: "0505550103", job: "בריסטה", status: "נדחה", reason: "חוסר התאמה לתפקיד" },
+  { phone: "0505550108", job: "אחראי/ת משמרת", status: "תקופת ניסיון", startDaysAgo: 5 }, // branch has no terms → no installments
+];
+
+async function seedPlacements(db: PrismaClient, adminId: string) {
+  for (const d of placements) {
+    const [candidate, job] = await Promise.all([
+      db.candidate.findUniqueOrThrow({ where: { phone: d.phone } }),
+      db.job.findFirstOrThrow({ where: { title: d.job, description: "משרת דמו" }, include: { branch: { include: { paymentTerms: { orderBy: { seq: "asc" } } } } } }),
+    ]);
+    if (await db.placement.findUnique({ where: { candidateId_jobId: { candidateId: candidate.id, jobId: job.id } } })) continue; // idempotent
+    const status = await db.lookupValue.findUniqueOrThrow({ where: { listKey_label: { listKey: "placement_status", label: d.status } } });
+    const reason = d.status === "נדחה" ? await db.lookupValue.findUniqueOrThrow({ where: { listKey_label: { listKey: "rejection_reason", label: d.reason! } } }) : null;
+
+    const startDate = d.startDaysAgo !== undefined ? addDays(today(), -d.startDaysAgo) : null;
+    const endDate = d.endDaysAgo !== undefined ? addDays(today(), -d.endDaysAgo) : null;
+    const salary = job.salary ? Number(job.salary) : null;
+    const b = job.branch;
+    const plan =
+      startDate && b.feeType
+        ? planInstallments(startDate, b.feeType as FeeType, Number(b.feeValue), salary, b.paymentTerms.map((t) => ({ sharePercent: Number(t.sharePercent), daysAfterStart: t.daysAfterStart })))
+        : null;
+
+    await db.placement.create({
+      data: {
+        candidateId: candidate.id,
+        jobId: job.id,
+        statusId: status.id,
+        rejectionReasonId: reason?.id,
+        startDate,
+        endDate,
+        endReason: endDate ? d.reason : null,
+        salary: startDate ? salary : null,
+        feeType: plan ? b.feeType : null,
+        feeValue: plan ? b.feeValue : null,
+        installments: plan
+          ? { create: plan.map((i) => ({ ...i, status: endDate && cancelledBy(i.dueDate, endDate) ? ("cancelled" as const) : ("expected" as const) })) }
+          : undefined,
+        activities: {
+          create: [
+            { candidateId: candidate.id, userId: adminId, type: "status_change", toValue: d.status, body: reason?.label ?? d.reason },
+            ...(plan ? [{ candidateId: candidate.id, userId: adminId, type: "billing" as const, body: `נוצרו ${plan.length} פעימות (דמו)` }] : []),
+          ],
+        },
+      },
+    });
+  }
+  console.log(`demo: ${placements.length} placements`);
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
   await seedLists(db);
   await seedCandidates(db, admin.id);
   await seedCompanies(db, admin.id);
+  await seedPlacements(db, admin.id);
 }

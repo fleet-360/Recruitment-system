@@ -46,6 +46,7 @@ Next.js 16 (App Router, TS) · PostgreSQL 17 (Docker) · Prisma 7 (`prisma-clien
 ```
 docker compose up -d db        # local Postgres
 npx prisma migrate dev         # apply migrations
+# non-interactive (Claude): prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script > prisma/migrations/<ts>_<name>/migration.sql && npx prisma migrate deploy; restart `npm run dev` after a schema change
 npm run seed:demo              # reference data + demo data (or: npx prisma db seed)
 npm run dev                    # http://localhost:3000
 npm test                       # node:test via tsx, files: src/**/*.test.ts

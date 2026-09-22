@@ -28,6 +28,13 @@ const cities: Record<string, string[]> = {
   דרום: ["באר שבע", "אשקלון", "אילת", "דימונה"],
 };
 
+// Values the code relies on (Notion → מאגר ידע, 22/09/2026). Admins may rename them, not deactivate them.
+const systemKeys: [ListKey, string, string][] = [
+  ["candidate_status", "התקבל לעבודה", "ready"],
+  ["placement_status", "נדחה", "rejected"],
+  ["placement_status", "פוטר", "fired"],
+];
+
 async function main() {
   for (const [listKey, labels] of Object.entries(lists) as [ListKey, string[]][]) {
     for (const [sortOrder, label] of labels.entries()) {
@@ -36,6 +43,13 @@ async function main() {
         update: {},
         create: { listKey, label, sortOrder, requiresNote: listKey === "rejection_reason" && label === "אחר" },
       });
+    }
+  }
+
+  for (const [listKey, label, systemKey] of systemKeys) {
+    // only when no value holds the key yet — a renamed value keeps it
+    if (!(await db.lookupValue.findUnique({ where: { listKey_systemKey: { listKey, systemKey } } }))) {
+      await db.lookupValue.updateMany({ where: { listKey, label }, data: { systemKey } });
     }
   }
 

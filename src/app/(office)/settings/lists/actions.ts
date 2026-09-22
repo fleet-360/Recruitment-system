@@ -81,6 +81,7 @@ export async function updateValue(id: string, _: FormState, formData: FormData):
 export async function toggleActive(id: string) {
   await requireAdmin();
   const value = await db.lookupValue.findUniqueOrThrow({ where: { id } });
+  if (value.systemKey) return; // the code relies on it (e.g. "נדחה") — the page hides the button too
   await db.lookupValue.update({ where: { id }, data: { isActive: !value.isActive } });
   revalidatePath(PATH);
 }

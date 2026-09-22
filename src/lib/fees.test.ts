@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { splitFee, termsError, totalFee } from "./fees";
+import { cancelledBy, planInstallments, splitFee, termsError, totalFee } from "./fees";
 
 test("terms must add up to 100%", () => {
   assert.equal(termsError("fixed", 5000, [{ sharePercent: 50, daysAfterStart: 0 }, { sharePercent: 50, daysAfterStart: 30 }]), null);
@@ -24,4 +24,18 @@ test("split adds up to the total exactly", () => {
   assert.deepEqual(parts, [333.3, 333.3, 333.41]);
   assert.equal(Math.round(parts.reduce((a, b) => a + b) * 100), 100001);
   assert.deepEqual(splitFee(5000, [{ sharePercent: 100, daysAfterStart: 0 }]), [5000]);
+});
+
+test("plan: due dates from the start date, amounts from the salary", () => {
+  const start = new Date("2026-10-01");
+  const plan = planInstallments(start, "percent_of_salary", 100, 9000, [{ sharePercent: 50, daysAfterStart: 0 }, { sharePercent: 50, daysAfterStart: 60 }])!;
+  assert.deepEqual(plan.map((p) => [p.seq, p.dueDate.toISOString().slice(0, 10), p.amount]), [[1, "2026-10-01", 4500], [2, "2026-11-30", 4500]]);
+  assert.equal(planInstallments(start, "percent_of_salary", 100, null, [{ sharePercent: 100, daysAfterStart: 0 }]), null);
+});
+
+test("cancel only installments due after the cutoff", () => {
+  const end = new Date("2026-11-01");
+  assert.equal(cancelledBy(new Date("2026-10-15"), end), false); // already owed
+  assert.equal(cancelledBy(new Date("2026-11-01"), end), false); // due on the last day — owed
+  assert.equal(cancelledBy(new Date("2026-11-30"), end), true);
 });

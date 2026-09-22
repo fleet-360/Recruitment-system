@@ -32,3 +32,23 @@ export function splitFee(total: number, rows: TermRow[]): number[] {
     return part / 100;
   });
 }
+
+const DAY = 86_400_000;
+export const addDays = (d: Date, days: number) => new Date(d.getTime() + days * DAY);
+
+export type PlannedInstallment = TermRow & { seq: number; dueDate: Date; amount: number };
+
+// Installments for a placement starting on `start` (a UTC-midnight date). null when a % fee has no salary yet.
+// Also used to recalculate after a start date / salary change, from the terms copied onto the installments.
+export function planInstallments(start: Date, feeType: FeeType, feeValue: number, salary: number | null, rows: TermRow[]): PlannedInstallment[] | null {
+  const total = totalFee(feeType, feeValue, salary);
+  if (total === null) return null;
+  const amounts = splitFee(total, rows);
+  return rows.map((r, i) => ({ ...r, seq: i + 1, dueDate: addDays(start, r.daysAfterStart), amount: amounts[i] }));
+}
+
+// Rejected / fired on `cutoff`: open installments due after it are cancelled; ones already due stay owed (decided 22/09/2026).
+export const cancelledBy = (dueDate: Date, cutoff: Date) => dueDate.getTime() > cutoff.getTime();
+
+// Today in Israel as a UTC-midnight date, comparable with @db.Date columns.
+export const today = () => new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }));

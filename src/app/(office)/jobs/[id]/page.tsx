@@ -1,18 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Briefcase, Lock, LockOpen, Users } from "lucide-react";
+import { Briefcase, Lock, LockOpen, Search, UserPlus, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
 import { getList } from "@/lib/lookups";
 import { JobForm } from "../job-form";
 import { branchGroups } from "../branch-groups";
 import { toggleJobStatus } from "../actions";
+import { assignCandidate } from "../../placements/actions";
+import { PlacementDrawer } from "../../placements/drawer";
+import { AutoFilterForm } from "@/components/auto-filter-form";
 
-// S-10 job: details + placements board by process status.
-// ponytail: "שייך מועמד" and moving cards come with placements (task 16).
-export default async function JobPage({ params }: PageProps<"/jobs/[id]">) {
+// S-10 job: details + placements board by process status. ?q= searches candidates to assign, ?p= opens a placement (S-11).
+export default async function JobPage({ params, searchParams }: PageProps<"/jobs/[id]">) {
   await requireOffice();
   const { id } = await params;
+  const sp = await searchParams;
+  const q = typeof sp.q === "string" ? sp.q.trim() : "";
+  const openId = typeof sp.p === "string" ? sp.p : undefined;
 
   const job = await db.job.findUnique({
     where: { id },
@@ -25,7 +30,22 @@ export default async function JobPage({ params }: PageProps<"/jobs/[id]">) {
   });
   if (!job) notFound();
 
-  const [statuses, groups] = await Promise.all([getList("placement_status"), branchGroups()]);
+  const digits = q.replace(/\D/g, "");
+  const [statuses, groups, matches] = await Promise.all([
+    getList("placement_status"),
+    branchGroups(),
+    q
+      ? db.candidate.findMany({
+          where: {
+            placements: { none: { jobId: id } },
+            OR: [{ fullName: { contains: q, mode: "insensitive" } }, ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : [])],
+          },
+          orderBy: { fullName: "asc" },
+          take: 8,
+          select: { id: true, fullName: true, city: { select: { label: true } }, status: { select: { label: true, systemKey: true } } },
+        })
+      : [],
+  ]);
   // A placement may sit in a status that was deactivated since — give it its own column rather than hiding it.
   const columns = [...statuses, ...(job.placements.some((p) => !p.statusId || !statuses.some((s) => s.id === p.statusId)) ? [{ id: "other", label: "אחר" }] : [])];
   const inColumn = (colId: string) =>
@@ -55,6 +75,33 @@ export default async function JobPage({ params }: PageProps<"/jobs/[id]">) {
         </form>
       </section>
 
+      {open && (
+        <section className="glass space-y-3 p-5">
+          <h2 className="font-bold">שיוך מועמד</h2>
+          <AutoFilterForm action={`/jobs/${id}`} className="relative">
+            <Search size={16} className="absolute start-3 top-3 text-slate-400" />
+            <input name="q" defaultValue={q} type="search" placeholder="חיפוש מועמד לפי שם או טלפון" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 ps-9 text-sm" />
+          </AutoFilterForm>
+          {q && (
+            <ul className="divide-y divide-slate-100 rounded-xl bg-white/60 text-sm">
+              {matches.map((c) => (
+                <li key={c.id} className="flex flex-wrap items-center gap-2 p-2">
+                  <Link href={`/candidates/${c.id}`} className="font-bold hover:underline">{c.fullName}</Link>
+                  <span className="text-slate-500">{c.city?.label}</span>
+                  {c.status?.systemKey !== "ready" && (
+                    <span className="rounded-full bg-amber-50 px-2 text-xs text-amber-700" title="עדיין לא בסטטוס התקבל לעבודה">{c.status?.label ?? "ללא סטטוס"}</span>
+                  )}
+                  <form action={assignCandidate.bind(null, id, c.id)} className="ms-auto">
+                    <button className="bg-primary-gradient flex items-center gap-1 rounded-lg px-3 py-1.5 text-white"><UserPlus size={14} /> שיוך</button>
+                  </form>
+                </li>
+              ))}
+              {matches.length === 0 && <li className="p-2 text-slate-400">לא נמצאו מועמדים שעוד לא שויכו למשרה</li>}
+            </ul>
+          )}
+        </section>
+      )}
+
       <section className="glass space-y-3 p-5">
         <h2 className="font-bold">מועמדים במשרה</h2>
         {job.placements.length === 0 ? (
@@ -73,7 +120,7 @@ export default async function JobPage({ params }: PageProps<"/jobs/[id]">) {
                   <span className="rounded-full bg-slate-100 px-2 text-xs">{inColumn(col.id).length}</span>
                 </h3>
                 {inColumn(col.id).map((p) => (
-                  <Link key={p.id} href={`/candidates/${p.candidate.id}`} className="flex items-center gap-2 rounded-lg bg-white p-2 text-sm shadow-sm hover:bg-slate-50">
+                  <Link key={p.id} href={`/jobs/${id}?p=${p.id}`} scroll={false} className="flex items-center gap-2 rounded-lg bg-white p-2 text-sm shadow-sm hover:bg-slate-50">
                     <span className="bg-primary-gradient flex size-7 shrink-0 items-center justify-center rounded-full text-xs text-white">{p.candidate.fullName[0]}</span>
                     {p.candidate.fullName}
                   </Link>
@@ -91,6 +138,8 @@ export default async function JobPage({ params }: PageProps<"/jobs/[id]">) {
           groups={groups.filter((g) => g.companyId === job.companyId)}
         />
       </section>
+
+      {openId && <PlacementDrawer placementId={openId} closeHref={`/jobs/${id}`} />}
     </>
   );
 }
