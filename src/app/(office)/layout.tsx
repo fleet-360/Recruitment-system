@@ -1,4 +1,5 @@
-import { LogOut, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { KeyRound, LogOut, Sparkles } from "lucide-react";
 import { signOut } from "@/auth";
 import { requireOffice } from "@/lib/session";
 import { NavLinks } from "./nav-links";
@@ -19,8 +20,10 @@ export default async function OfficeLayout({ children }: { children: React.React
         <nav className="hidden flex-1 md:block">
           <NavLinks variant="top" isAdmin={isAdmin} />
         </nav>
+        <Link href="/account/password" className="ms-auto text-slate-500 hover:text-violet-700" title="החלפת סיסמה" aria-label="החלפת סיסמה">
+          <KeyRound size={20} />
+        </Link>
         <form
-          className="ms-auto"
           action={async () => {
             "use server";
             await signOut({ redirectTo: "/login" });

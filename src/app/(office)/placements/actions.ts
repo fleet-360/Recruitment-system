@@ -14,8 +14,9 @@ const shekel = (n: number) => `${n.toLocaleString("he-IL")} ₪`;
 const installments = (n: number) => (n === 1 ? "פעימה אחת" : `${n} פעימות`);
 const date = (d: Date) => d.toLocaleDateString("he-IL", { timeZone: "UTC" });
 
-// Both pages that show a placement drawer.
+// Every page that shows a placement drawer.
 function refresh(p: { jobId: string; candidateId: string }) {
+  revalidatePath("/collections");
   revalidatePath(`/jobs/${p.jobId}`);
   revalidatePath(`/candidates/${p.candidateId}`);
 }

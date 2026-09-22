@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Building2, LayoutGrid, Settings, Users } from "lucide-react";
+import { Briefcase, Building2, LayoutGrid, Settings, Users, Wallet } from "lucide-react";
 
 const items = [
   { href: "/", label: "ראשי", Icon: LayoutGrid },
   { href: "/candidates", label: "מועמדים", Icon: Users },
   { href: "/companies", label: "חברות", Icon: Building2 },
   { href: "/jobs", label: "משרות", Icon: Briefcase },
-  { href: "/settings/lists", label: "הגדרות", Icon: Settings, adminOnly: true },
+  { href: "/collections", label: "גבייה", Icon: Wallet },
+  { href: "/settings", label: "הגדרות", Icon: Settings, adminOnly: true },
 ];
 
 export function NavLinks({ variant, isAdmin }: { variant: "top" | "bottom"; isAdmin: boolean }) {

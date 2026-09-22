@@ -1,6 +1,7 @@
 // Fictional demo data for local testing — never run in production (only with `npm run seed:demo`).
 // Every feature step adds its own section here. Phones use the 050-555xxxx range; names are made up.
 import type { PrismaClient } from "../src/generated/prisma/client";
+import bcrypt from "bcryptjs";
 import { addDays, cancelledBy, planInstallments, today, type FeeType } from "../src/lib/fees";
 
 const DAY = 86_400_000;
@@ -221,6 +222,42 @@ async function seedPlacements(db: PrismaClient, adminId: string) {
   console.log(`demo: ${placements.length} placements`);
 }
 
+// ───── Step: collections — pay the installments whose due date passed, except the ones meant to stay overdue
+const leaveOverdue = ["0505550105"]; // % of salary placement: 1st installment stays late
+
+async function seedCollections(db: PrismaClient) {
+  const due = await db.installment.findMany({
+    where: { status: "expected", dueDate: { lt: today() }, placement: { job: { description: "משרת דמו" }, candidate: { phone: { notIn: leaveOverdue } } } },
+  });
+  for (const i of due) {
+    const paidAt = addDays(i.dueDate, 3) < today() ? addDays(i.dueDate, 3) : today(); // paid a few days late, like real life
+    await db.installment.update({ where: { id: i.id }, data: { status: "paid", paidAt } });
+  }
+  console.log(`demo: ${due.length} installments marked paid`); // idempotent: paid ones no longer match
+}
+
+// ───── Step: users — one per role besides admin. Password "demo1234", no forced change (demo only).
+const demoUsers = [
+  { email: "recruiter@example.com", name: "מיכל רכזת", role: "recruiter" as const },
+  { email: "company@example.com", name: "יוסי מנהל חברה", role: "company_admin" as const, company: "לוגיסטיקה צפונית בע״מ" },
+  { email: "branch@example.com", name: "דנה מנהלת סניף", role: "branch_manager" as const, company: "רשת קפה בוקר טוב", branches: ["ראשי"] },
+];
+
+async function seedUsers(db: PrismaClient) {
+  const passwordHash = await bcrypt.hash("demo1234", 12);
+  for (const u of demoUsers) {
+    if (await db.user.findUnique({ where: { email: u.email } })) continue; // idempotent
+    const company = u.company ? await db.company.findFirstOrThrow({ where: { name: u.company }, include: { branches: true } }) : null;
+    await db.user.create({
+      data: {
+        email: u.email, name: u.name, role: u.role, passwordHash, companyId: company?.id,
+        branches: { create: (company?.branches ?? []).filter((b) => u.branches?.includes(b.name)).map((b) => ({ branchId: b.id })) },
+      },
+    });
+  }
+  console.log(`demo: ${demoUsers.length} users (password demo1234)`);
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
@@ -228,4 +265,6 @@ export async function seedDemo(db: PrismaClient) {
   await seedCandidates(db, admin.id);
   await seedCompanies(db, admin.id);
   await seedPlacements(db, admin.id);
+  await seedCollections(db);
+  await seedUsers(db);
 }

@@ -61,11 +61,12 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
-  passwordHash  String? // business users (email + password); office uses Google
+  passwordHash  String? // email + password for everyone; null for Google-only users
   role          Role      @default(recruiter)
   companyId     String? // business users only
   company       Company?  @relation(fields: [companyId], references: [id])
   isActive      Boolean   @default(true)
+  mustChangePassword Boolean @default(false) // set when an admin creates the user / resets the password
   createdAt     DateTime  @default(now())
 
   accounts        Account[]
