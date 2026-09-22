@@ -8,8 +8,8 @@ const errors: Record<string, string> = {
 };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  if (await auth()) redirect("/");
   const { error } = await searchParams;
+  if (!error && (await auth())) redirect("/"); // with ?error, stay here (e.g. deactivated user still holding a session)
 
   async function google() {
     "use server";

@@ -33,3 +33,12 @@ body {
 @utility bg-accent-gradient {
   background-image: linear-gradient(to left, var(--color-accent-from), var(--color-accent-to));
 }
+
+/* Tailwind v4 resets buttons to cursor: default */
+@layer base {
+  button:not(:disabled),
+  summary,
+  label:has(> input[type="file"]) {
+    cursor: pointer;
+  }
+}
