@@ -69,8 +69,19 @@ async function seedCandidates(db: PrismaClient, adminId: string) {
   console.log(`demo: ${candidates.length} candidates`);
 }
 
+// ───── Step: settings lists — one retired value so the "לא פעיל" state shows up
+async function seedLists(db: PrismaClient) {
+  await db.lookupValue.upsert({
+    where: { listKey_label: { listKey: "lead_source", label: "עיתון מקומי" } },
+    update: {},
+    create: { listKey: "lead_source", label: "עיתון מקומי", sortOrder: 99, isActive: false },
+  });
+  console.log("demo: 1 inactive lead source");
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
+  await seedLists(db);
   await seedCandidates(db, admin.id);
 }

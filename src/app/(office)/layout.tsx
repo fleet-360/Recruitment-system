@@ -4,7 +4,8 @@ import { requireOffice } from "@/lib/session";
 import { NavLinks } from "./nav-links";
 
 export default async function OfficeLayout({ children }: { children: React.ReactNode }) {
-  await requireOffice();
+  const user = await requireOffice();
+  const isAdmin = user.role === "admin";
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-3 pb-24 md:p-4">
@@ -16,7 +17,7 @@ export default async function OfficeLayout({ children }: { children: React.React
           CRM השמה
         </span>
         <nav className="hidden flex-1 md:block">
-          <NavLinks variant="top" />
+          <NavLinks variant="top" isAdmin={isAdmin} />
         </nav>
         <form
           className="ms-auto"
@@ -34,7 +35,7 @@ export default async function OfficeLayout({ children }: { children: React.React
       {children}
 
       <nav className="glass fixed inset-x-3 bottom-3 p-2 md:hidden">
-        <NavLinks variant="bottom" />
+        <NavLinks variant="bottom" isAdmin={isAdmin} />
       </nav>
     </div>
   );

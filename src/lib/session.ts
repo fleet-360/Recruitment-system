@@ -31,3 +31,9 @@ export async function requireOffice() {
   if (!isOffice(user)) redirect("/portal");
   return user;
 }
+
+export async function requireAdmin() {
+  const user = await requireOffice();
+  if (user.role !== "admin") redirect("/");
+  return user;
+}

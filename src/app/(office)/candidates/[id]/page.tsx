@@ -3,7 +3,7 @@ import { ArrowLeftRight, FileText, MessageCircle, Phone, StickyNote } from "luci
 import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
 import { candidateWhere } from "@/lib/access";
-import { getList } from "@/lib/lookups";
+import { getList, withCurrent } from "@/lib/lookups";
 import { toIntl } from "@/lib/phone";
 import { StatusStepper } from "@/components/status-stepper";
 import { addNote, setCandidateStatus } from "../actions";
@@ -21,7 +21,9 @@ export default async function CandidatePage({ params }: PageProps<"/candidates/[
   const candidate = await db.candidate.findFirst({
     where: { AND: [{ id }, await candidateWhere(user)] },
     include: {
-      city: { select: { label: true } },
+      city: { select: { id: true, label: true } },
+      status: { select: { id: true, label: true } },
+      source: { select: { id: true, label: true } },
       languages: { select: { language: { select: { id: true, label: true } } } },
       files: { orderBy: { uploadedAt: "desc" } },
       activities: { orderBy: { createdAt: "desc" }, include: { user: { select: { name: true, email: true } } } },
@@ -30,10 +32,10 @@ export default async function CandidatePage({ params }: PageProps<"/candidates/[
   if (!candidate) notFound();
 
   const [statuses, cities, sources, languages] = await Promise.all([
-    getList("candidate_status"),
-    getList("city"),
-    getList("lead_source"),
-    getList("language"),
+    getList("candidate_status").then((l) => withCurrent(l, candidate.status)),
+    getList("city").then((l) => withCurrent(l, candidate.city)),
+    getList("lead_source").then((l) => withCurrent(l, candidate.source)),
+    getList("language").then((l) => withCurrent(l, ...candidate.languages.map((x) => x.language))),
   ]);
 
   return (
