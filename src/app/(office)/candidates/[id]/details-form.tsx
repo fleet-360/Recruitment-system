@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { keepValues } from "@/lib/keep-values";
 import type { Option } from "@/lib/lookups";
 import { updateCandidate } from "../actions";
 
@@ -34,7 +35,7 @@ export function DetailsForm({
   const [state, action, pending] = useActionState(updateCandidate.bind(null, c.id), null);
 
   return (
-    <form action={action} className="grid gap-3 text-sm sm:grid-cols-2">
+    <form onSubmit={keepValues(action)} className="grid gap-3 text-sm sm:grid-cols-2">
       <label>
         שם מלא <Req />
         <input name="fullName" defaultValue={c.fullName} required minLength={2} className={field} />

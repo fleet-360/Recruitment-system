@@ -20,7 +20,10 @@ Project page: https://app.notion.com/p/3e320f5aa25e808289fcd56b1c0be747 (use the
 | עלייה לאוויר | `3e320f5aa25e8041b992f0588c29f518` | deployment |
 | Kickoff meeting notes | `3e320f5aa25e803291bff1545d557ce7` | original client input (read-only) |
 
-**At the start of a session:** fetch מאגר ידע (and the page relevant to the task) before proposing work.
+**Tasks** live in the shared משימות database (data source `collection://f398fa67-0edf-4c24-9009-9d7ab09c1c1c`), linked to the project via the `פרויקט` relation. Titles are numbered in build order (`NN · name`). Fields: `סוג` (פיצ׳ר / באג / עדכון), `סטטוס` (לביצוע → בתהליך → בבדיקה → הושלם), `תיאור` (REQ/S ids + the seed data it needs). The next task is the lowest-numbered one that isn't done.
+
+**At the start of a session:** fetch מאגר ידע and the open tasks (and the page relevant to the task) before proposing work.
+**While working:** set the task to בתהליך when you start it, בבדיקה when the code is done but not yet checked in the browser or approved by the user, and הושלם when it's approved (and committed). New work, bugs or follow-ups → a new task with the next free number.
 **After every decision or finished step:** add a dated Hebrew line to מאגר ידע, and update the affected spec page (schema change → ERD page; new screen → מסכים; flow change → תהליכים). Record *why*, not just what.
 
 ## Working methodology
@@ -53,6 +56,7 @@ npm test                       # node:test via tsx, files: src/**/*.test.ts
 - **Permissions go through one layer.** Scope every candidate query with `candidateWhere(user)` from `src/lib/access.ts`; business users get only `businessCandidateSelect` (name, city, summary, placement status — no phone, CV, ID or internal notes).
 - **Every office page and every server action calls `requireOffice()`** (or `requireAdmin()` for settings). Layouts don't protect server actions.
 - **Editable lists** live in the single `LookupValue` table (keyed by `listKey`). Never delete a value — set `isActive=false`. When a form shows a list, keep a record's current (possibly inactive) value selectable with `withCurrent()`, or saving clears it.
+- Forms with `useActionState` submit via `<form onSubmit={keepValues(action)}>` (`src/lib/keep-values.ts`), not `action={action}` — React 19 resets the form after an action, so a validation error would wipe what the user typed. New-item forms clear with `key={state?.savedAt}`.
 - Validate form input with zod on the server; lookup ids from forms must be checked against the expected list.
 - Status changes and money changes write an `Activity` row in the same transaction (audit, NFR-03).
 - Uploads: outside `/public`, random file names, served only by `/api/files/[id]` after a permission check.

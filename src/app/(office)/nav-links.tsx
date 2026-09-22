@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Settings, Users } from "lucide-react";
+import { Briefcase, Building2, LayoutGrid, Settings, Users } from "lucide-react";
 
 const items = [
   { href: "/", label: "ראשי", Icon: LayoutGrid },
   { href: "/candidates", label: "מועמדים", Icon: Users },
+  { href: "/companies", label: "חברות", Icon: Building2 },
+  { href: "/jobs", label: "משרות", Icon: Briefcase },
   { href: "/settings/lists", label: "הגדרות", Icon: Settings, adminOnly: true },
 ];
 

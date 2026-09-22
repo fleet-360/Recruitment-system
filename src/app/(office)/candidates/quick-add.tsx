@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { keepValues } from "@/lib/keep-values";
 import { UserPlus, X } from "lucide-react";
 import type { Option } from "@/lib/lookups";
 import { createCandidate, findByPhone } from "./actions";
@@ -40,7 +41,7 @@ export function QuickAdd({ sources, defaultOpen }: { sources: Option[]; defaultO
             <X size={20} />
           </button>
         </div>
-        <form action={action} className="space-y-3">
+        <form onSubmit={keepValues(action)} className="space-y-3">
           <label className="block text-sm">
             שם מלא <span className="text-red-500">*</span>
             <input name="fullName" required minLength={2} autoFocus className={field} />

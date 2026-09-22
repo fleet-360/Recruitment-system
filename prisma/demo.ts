@@ -79,9 +79,94 @@ async function seedLists(db: PrismaClient) {
   console.log("demo: 1 inactive lead source");
 }
 
+// ───── Step: companies, branches, payment terms, jobs
+type DemoBranch = {
+  name: string;
+  city: string;
+  fee?: { type: "fixed" | "percent_of_salary"; value: number; terms: [share: number, days: number][] };
+  jobs?: { title: string; salary?: number; openings?: number; closed?: boolean }[];
+};
+const companies: { name: string; regNumber: string; contacts: { name: string; role: string; phone: string; branch?: string }[]; branches: DemoBranch[] }[] = [
+  {
+    name: "לוגיסטיקה צפונית בע״מ",
+    regNumber: "515550001",
+    contacts: [
+      { name: "רונית אבוטבול", role: "מנהלת משאבי אנוש", phone: "0505550201" },
+      { name: "סאמר חביב", role: "מנהל מחסן", phone: "0505550202", branch: "סניף נצרת" },
+    ],
+    branches: [
+      { name: "מרכז הפצה חיפה", city: "חיפה", fee: { type: "percent_of_salary", value: 100, terms: [[50, 0], [50, 60]] },
+        jobs: [{ title: "מלקט/ת במחסן", salary: 7500, openings: 5 }, { title: "מנהל/ת משמרת", salary: 11000, closed: true }] },
+      { name: "סניף נצרת", city: "נצרת", fee: { type: "fixed", value: 4000, terms: [[100, 30]] },
+        jobs: [{ title: "נהג/ת מלגזה", salary: 9000, openings: 2 }] },
+    ],
+  },
+  {
+    name: "רשת קפה בוקר טוב",
+    regNumber: "515550002",
+    contacts: [{ name: "עדי שמש", role: "בעלים", phone: "0505550203" }],
+    branches: [
+      { name: "ראשי", city: "תל אביב-יפו", fee: { type: "fixed", value: 2500, terms: [[33.33, 0], [33.33, 30], [33.34, 60]] },
+        jobs: [{ title: "בריסטה", salary: 6500, openings: 3 }] },
+      { name: "רמת גן", city: "רמת גן", jobs: [{ title: "אחראי/ת משמרת", salary: 8000 }] }, // no terms — edge case
+    ],
+  },
+  {
+    name: "מלונות ים התכלת",
+    regNumber: "515550003",
+    contacts: [{ name: "גלעד פרץ", role: "מנהל כוח אדם", phone: "0505550204" }],
+    branches: [
+      { name: "מלון אילת", city: "אילת", fee: { type: "percent_of_salary", value: 80, terms: [[100, 90]] },
+        jobs: [{ title: "חדרן/ית", salary: 7000, openings: 8 }, { title: "פקיד/ת קבלה", salary: 8500, closed: true }] },
+    ],
+  },
+  { name: "טכנו-פלסט תעשיות", regNumber: "515550004", contacts: [], branches: [{ name: "ראשי", city: "באר שבע" }] }, // no jobs yet
+];
+
+async function seedCompanies(db: PrismaClient, adminId: string) {
+  for (const c of companies) {
+    if (await db.company.findFirst({ where: { regNumber: c.regNumber } })) continue; // idempotent
+    const company = await db.company.create({ data: { name: c.name, regNumber: c.regNumber, notes: "חברת דמו" } });
+    const branchIds: Record<string, string> = {};
+    for (const b of c.branches) {
+      const city = await lookup(db, "city", b.city);
+      const branch = await db.branch.create({
+        data: {
+          companyId: company.id,
+          name: b.name,
+          cityId: city.id,
+          feeType: b.fee?.type,
+          feeValue: b.fee?.value,
+          paymentTerms: b.fee && { create: b.fee.terms.map(([sharePercent, daysAfterStart], i) => ({ seq: i + 1, sharePercent, daysAfterStart })) },
+        },
+      });
+      branchIds[b.name] = branch.id;
+      for (const j of b.jobs ?? []) {
+        await db.job.create({
+          data: {
+            companyId: company.id,
+            branchId: branch.id,
+            title: j.title,
+            salary: j.salary,
+            openings: j.openings ?? 1,
+            status: j.closed ? "closed" : "open",
+            description: "משרת דמו",
+            createdById: adminId,
+          },
+        });
+      }
+    }
+    await db.contact.createMany({
+      data: c.contacts.map((ct) => ({ companyId: company.id, name: ct.name, role: ct.role, phone: ct.phone, branchId: ct.branch ? branchIds[ct.branch] : null })),
+    });
+  }
+  console.log(`demo: ${companies.length} companies with branches, terms and jobs`);
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
   await seedLists(db);
   await seedCandidates(db, admin.id);
+  await seedCompanies(db, admin.id);
 }

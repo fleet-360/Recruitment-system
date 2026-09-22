@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { keepValues } from "@/lib/keep-values";
 import { Plus } from "lucide-react";
 import type { ListKey } from "@/generated/prisma/client";
 import type { Option } from "@/lib/lookups";
@@ -33,7 +34,7 @@ export function EditValueForm({
   const [state, action, pending] = useActionState(updateValue.bind(null, value.id), null);
 
   return (
-    <form action={action} className="flex flex-1 flex-wrap items-center gap-2">
+    <form onSubmit={keepValues(action)} className="flex flex-1 flex-wrap items-center gap-2">
       <input name="label" defaultValue={value.label} required maxLength={80} aria-label="שם" className={`${field} min-w-40 flex-1`} />
       {listKey === "city" && <RegionSelect regions={regions} defaultValue={value.parentId} />}
       {listKey === "rejection_reason" && (
@@ -55,7 +56,7 @@ export function AddValueForm({ listKey, regions }: { listKey: ListKey; regions: 
 
   return (
     // key resets the inputs after each successful add
-    <form key={state?.savedAt ?? "add"} action={action} className="flex flex-wrap items-center gap-2">
+    <form key={state?.savedAt ?? "add"} onSubmit={keepValues(action)} className="flex flex-wrap items-center gap-2">
       <input name="label" required maxLength={80} placeholder="ערך חדש" aria-label="ערך חדש" className={`${field} min-w-40 flex-1`} />
       {listKey === "city" && <RegionSelect regions={regions} />}
       <button disabled={pending} className="bg-accent-gradient flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
