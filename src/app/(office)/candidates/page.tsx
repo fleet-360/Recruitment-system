@@ -5,6 +5,7 @@ import { requireOffice } from "@/lib/session";
 import { candidateWhere } from "@/lib/access";
 import { getList } from "@/lib/lookups";
 import type { Prisma } from "@/generated/prisma/client";
+import { AutoFilterForm, ClearFiltersButton } from "@/components/auto-filter-form";
 import { QuickAdd } from "./quick-add";
 
 const daysSince = (d: Date) => Math.floor((Date.now() - d.getTime()) / 86_400_000);
@@ -62,6 +63,8 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/candi
     const next = new URLSearchParams(Object.entries({ q, status, city, language, source, ...patch }).filter((e): e is [string, string] => !!e[1]));
     return `/candidates${next.size ? `?${next}` : ""}`;
   };
+  const filtered = !!(q || status || city || language || source);
+
   return (
     <>
       <section className="glass flex flex-wrap items-center gap-4 p-5">
@@ -75,11 +78,11 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/candi
         <QuickAdd sources={sources} defaultOpen={sp.new === "1"} />
       </section>
 
-      <form className="glass flex flex-wrap gap-2 p-3">
+      <AutoFilterForm action="/candidates" className="glass flex flex-wrap gap-2 p-3">
         {status && <input type="hidden" name="status" value={status} />}
         <label className="relative flex-1 basis-48">
           <Search size={16} className="absolute start-3 top-3 text-slate-400" />
-          <input name="q" defaultValue={q} placeholder="חיפוש לפי שם או טלפון" className={`${select} w-full ps-9`} />
+          <input name="q" defaultValue={q} type="search" placeholder="חיפוש לפי שם או טלפון" className={`${select} w-full ps-9`} />
         </label>
         <select name="city" defaultValue={city ?? ""} className={select} aria-label="עיר">
           <option value="">כל הערים</option>
@@ -93,8 +96,8 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/candi
           <option value="">כל המקורות</option>
           {sources.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
-        <button className="bg-primary-gradient rounded-xl px-4 text-sm font-medium text-white">סינון</button>
-      </form>
+        {filtered && <ClearFiltersButton />}
+      </AutoFilterForm>
 
       <nav className="flex gap-2 overflow-x-auto pb-1">
         {[{ id: undefined, label: "הכל", n: total }, ...statuses.map((s) => ({ id: s.id, label: s.label, n: countOf(s.id) }))].map((p) => (
@@ -117,7 +120,7 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/candi
             <Users size={26} />
           </span>
           <h2 className="font-bold">אין מועמדים</h2>
-          <p className="text-sm text-slate-500">{q || city || language || source || status ? "נסה לשנות את הסינון" : "התחל בקליטה מהירה של מועמד ראשון"}</p>
+          <p className="text-sm text-slate-500">{filtered ? "נסה לשנות את הסינון" : "התחל בקליטה מהירה של מועמד ראשון"}</p>
         </section>
       ) : (
         <div className="glass overflow-x-auto">
