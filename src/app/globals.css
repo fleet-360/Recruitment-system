@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Design language: soft glass cards on a pastel blurred background (see Notion → מסכים) */
+@theme inline {
+  --font-sans: var(--font-heebo);
+  --color-primary-from: #10b981;
+  --color-primary-to: #06b6d4;
+  --color-accent-from: #8b5cf6;
+  --color-accent-to: #3b82f6;
+}
+
+body {
+  color: #1e293b;
+  background:
+    radial-gradient(40rem 30rem at 90% 5%, #ccf5e4 0%, transparent 60%),
+    radial-gradient(35rem 30rem at 5% 80%, #c9f3ef 0%, transparent 60%),
+    radial-gradient(40rem 30rem at 50% 100%, #f1e8ff 0%, transparent 60%),
+    #f4f5fb;
+  background-attachment: fixed;
+}
+
+@utility glass {
+  background: rgb(255 255 255 / 0.7);
+  backdrop-filter: blur(12px);
+  border-radius: 1rem;
+  box-shadow: 0 8px 30px rgb(15 23 42 / 0.06);
+}
+
+@utility bg-primary-gradient {
+  background-image: linear-gradient(to left, var(--color-primary-from), var(--color-primary-to));
+}
+
+@utility bg-accent-gradient {
+  background-image: linear-gradient(to left, var(--color-accent-from), var(--color-accent-to));
+}
