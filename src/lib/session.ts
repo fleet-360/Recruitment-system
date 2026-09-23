@@ -38,3 +38,10 @@ export async function requireAdmin() {
   if (user.role !== "admin") redirect("/");
   return user;
 }
+
+// Every portal page and portal-only action.
+export async function requireBusiness() {
+  const user = await requireUser();
+  if (isOffice(user)) redirect("/");
+  return user;
+}

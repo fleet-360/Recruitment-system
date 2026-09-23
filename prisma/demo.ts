@@ -3,7 +3,7 @@
 import type { PrismaClient } from "../src/generated/prisma/client";
 import bcrypt from "bcryptjs";
 import { addDays, cancelledBy, planInstallments, today, type FeeType } from "../src/lib/fees";
-import { notifyOverdue } from "../src/lib/notifications";
+import { notifyOffice, notifyOverdue } from "../src/lib/notifications";
 
 const DAY = 86_400_000;
 
@@ -264,6 +264,19 @@ async function seedNotifications(db: PrismaClient) {
   console.log(`demo: ${await notifyOverdue(db)} overdue notifications`); // idempotent: each installment is notified once
 }
 
+// ───── Step: business portal — a job the branch manager opened in the portal, with the office notification it sends
+async function seedPortal(db: PrismaClient) {
+  const manager = await db.user.findUniqueOrThrow({ where: { email: "branch@example.com" }, include: { branches: true } });
+  const title = "בריסטה למשמרות ערב";
+  if (await db.job.findFirst({ where: { title, createdById: manager.id } })) return; // idempotent
+  const branch = await db.branch.findUniqueOrThrow({ where: { id: manager.branches[0].branchId }, include: { company: true } });
+  const job = await db.job.create({
+    data: { title, description: "משרת דמו מהפורטל — ערבים וסופי שבוע", salary: 7500, openings: 2, companyId: branch.companyId, branchId: branch.id, createdById: manager.id },
+  });
+  await notifyOffice(db, [{ type: "job_opened", entityType: "job", entityId: job.id, message: `משרה חדשה מהפורטל: ${title} — ${branch.company.name} · ${branch.name}` }]);
+  console.log("demo: 1 portal job + office notification");
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
@@ -274,4 +287,5 @@ export async function seedDemo(db: PrismaClient) {
   await seedCollections(db);
   await seedUsers(db);
   await seedNotifications(db);
+  await seedPortal(db);
 }

@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Building2, LayoutGrid, Settings, Users, Wallet } from "lucide-react";
+import { Briefcase, Building2, History, LayoutGrid, Settings, Users, Wallet } from "lucide-react";
 
-const items = [
+const office = [
   { href: "/", label: "ראשי", Icon: LayoutGrid },
   { href: "/candidates", label: "מועמדים", Icon: Users },
   { href: "/companies", label: "חברות", Icon: Building2 },
@@ -13,13 +13,23 @@ const items = [
   { href: "/settings", label: "הגדרות", Icon: Settings, adminOnly: true },
 ];
 
-export function NavLinks({ variant, isAdmin }: { variant: "top" | "bottom"; isAdmin: boolean }) {
+const portal = [
+  { href: "/portal", label: "ראשי", Icon: LayoutGrid },
+  { href: "/portal/jobs", label: "משרות", Icon: Briefcase },
+  { href: "/portal/candidates", label: "מועמדים", Icon: Users },
+  { href: "/portal/history", label: "היסטוריה", Icon: History },
+  { href: "/portal/profile", label: "פרופיל", Icon: Building2 },
+];
+
+export function NavLinks({ variant, isAdmin = false, area = "office" }: { variant: "top" | "bottom"; isAdmin?: boolean; area?: "office" | "portal" }) {
   const path = usePathname();
+  const items = area === "portal" ? portal : office;
+  const home = items[0].href;
 
   return (
     <ul className={variant === "bottom" ? "grid grid-flow-col auto-cols-fr gap-1" : "flex gap-1"}>
-      {items.filter((i) => isAdmin || !i.adminOnly).map(({ href, label, Icon }) => {
-        const active = href === "/" ? path === "/" : path.startsWith(href);
+      {items.filter((i) => isAdmin || !("adminOnly" in i)).map(({ href, label, Icon }) => {
+        const active = href === home ? path === home : path.startsWith(href);
         return (
           <li key={href}>
             <Link

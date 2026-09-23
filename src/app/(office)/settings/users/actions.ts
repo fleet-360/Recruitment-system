@@ -1,11 +1,11 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/session";
+import { tempPassword } from "@/lib/temp-password";
 import { Prisma, Role } from "@/generated/prisma/client";
 
 // tempPassword is shown to the admin once, to hand over (decided 22/09/2026: no email service yet).
@@ -13,12 +13,6 @@ export type UserFormState = { error?: string; ok?: boolean; tempPassword?: strin
 
 const PATH = "/settings/users";
 const isDuplicate = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
-
-// 10 chars from an alphabet without look-alikes (0/O, 1/l/I) — easy to read out over the phone.
-function tempPassword() {
-  const abc = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  return [...randomBytes(10)].map((b) => abc[b % abc.length]).join("");
-}
 
 const schema = z.object({
   name: z.string().trim().min(2, "יש להזין שם").max(80),

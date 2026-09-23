@@ -13,7 +13,7 @@ type EditUser = { id: string; name: string | null; email: string; role: Role; co
 const field = "w-full rounded-xl border border-slate-200 bg-white p-2.5";
 
 // Shown once — the admin passes it on; the user must change it at first login.
-function TempPassword({ state }: { state: UserFormState }) {
+export function TempPassword({ state }: { state: UserFormState }) {
   if (!state?.tempPassword) return null;
   return (
     <div className="rounded-xl bg-emerald-50 p-3 text-emerald-800">
@@ -89,8 +89,9 @@ export function UserForm({ user, companies }: { user: EditUser | null; companies
   );
 }
 
-export function ResetPasswordForm({ userId }: { userId: string }) {
-  const [state, action, pending] = useActionState(resetPassword.bind(null, userId), null);
+// `reset` lets the portal pass its own (company-scoped) action.
+export function ResetPasswordForm({ userId, reset = resetPassword }: { userId: string; reset?: (userId: string) => Promise<UserFormState> }) {
+  const [state, action, pending] = useActionState(reset.bind(null, userId), null);
 
   return (
     <form

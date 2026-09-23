@@ -26,3 +26,8 @@ export const businessCandidateSelect = {
   summary: true,
   city: { select: { label: true } },
 } satisfies Prisma.CandidateSelect;
+
+// Office: any branch. Business: only its own — every portal write (jobs, placements) checks this.
+export async function canUseBranch(user: CurrentUser, branchId: string) {
+  return isOffice(user) || (await businessBranchIds(user)).includes(branchId);
+}

@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireOffice } from "@/lib/session";
+import { isOffice, requireOffice, requireUser, type CurrentUser } from "@/lib/session";
+import { canUseBranch } from "@/lib/access";
+import { notifyOffice } from "@/lib/notifications";
 import { cancelledBy, planInstallments, today, type FeeType } from "@/lib/fees";
 import { Prisma } from "@/generated/prisma/client";
 
@@ -19,6 +21,28 @@ function refresh(p: { jobId: string; candidateId: string }) {
   revalidatePath("/collections");
   revalidatePath(`/jobs/${p.jobId}`);
   revalidatePath(`/candidates/${p.candidateId}`);
+  revalidatePath("/portal", "layout");
+}
+
+// Status, reject and fire are open to business users in their own branches (decided 23/09/2026);
+// start date / salary stay office-only. Business changes notify the office.
+async function requirePlacement(placementId: string) {
+  const user = await requireUser();
+  const p = await db.placement.findUniqueOrThrow({
+    where: { id: placementId },
+    include: { status: true, candidate: { select: { fullName: true } }, job: { select: { branchId: true, title: true, company: { select: { name: true } } } } },
+  });
+  if (!(await canUseBranch(user, p.job.branchId))) throw new Error("forbidden");
+  return { user, p };
+}
+
+type Loaded = Awaited<ReturnType<typeof requirePlacement>>["p"];
+async function notifyIfBusiness(tx: Tx, user: CurrentUser, p: Loaded, what: string) {
+  if (isOffice(user)) return;
+  await notifyOffice(tx, [{
+    type: "placement_status", entityType: "placement", entityId: p.id,
+    message: `${p.job.company.name}: ${p.candidate.fullName} · ${p.job.title} — ${what} (עודכן בפורטל ע״י ${user.name ?? user.email})`,
+  }]);
 }
 
 const systemStatus = (tx: Tx, systemKey: "rejected" | "fired") =>
@@ -63,10 +87,9 @@ export async function assignCandidate(jobId: string, candidateId: string) {
 // Moving a rejected / fired placement back to a normal step reopens it: its cancelled installments come back.
 
 export async function setPlacementStatus(placementId: string, formData: FormData) {
-  const user = await requireOffice();
+  const { user, p } = await requirePlacement(placementId);
   const statusId = String(formData.get("statusId"));
   const next = await db.lookupValue.findFirstOrThrow({ where: { id: statusId, listKey: "placement_status", systemKey: null } });
-  const p = await db.placement.findUniqueOrThrow({ where: { id: placementId }, include: { status: true } });
   if (p.statusId === statusId) return;
   const reopen = !!p.status?.systemKey;
 
@@ -82,6 +105,7 @@ export async function setPlacementStatus(placementId: string, formData: FormData
       const { count } = await tx.installment.updateMany({ where: { placementId, status: "cancelled" }, data: { status: "expected" } });
       if (count) await tx.activity.create({ data: { candidateId: p.candidateId, placementId, userId: user.id, type: "billing", body: `ההשמה נפתחה מחדש — ${installments(count)} חזרו לצפוי` } });
     }
+    await notifyIfBusiness(tx, user, p, next.label);
   });
   refresh(p);
 }
@@ -95,14 +119,13 @@ const rejectSchema = z.object({
 });
 
 export async function rejectPlacement(placementId: string, _: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireOffice();
+  const { user, p } = await requirePlacement(placementId);
   const parsed = rejectSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { rejectionReasonId, rejectionNote } = parsed.data;
   const reason = await db.lookupValue.findFirst({ where: { id: rejectionReasonId, listKey: "rejection_reason" } });
   if (!reason) return { error: "סיבת דחייה לא תקינה" };
   if (reason.requiresNote && !rejectionNote) return { error: "יש לפרט את סיבת הדחייה" };
-  const p = await db.placement.findUniqueOrThrow({ where: { id: placementId }, include: { status: true } });
 
   await db.$transaction(async (tx) => {
     const rejected = await systemStatus(tx, "rejected");
@@ -115,6 +138,7 @@ export async function rejectPlacement(placementId: string, _: FormState, formDat
     });
     const cancelled = await cancelAfter(tx, placementId, today());
     if (cancelled) await tx.activity.create({ data: { candidateId: p.candidateId, placementId, userId: user.id, type: "billing", body: `בוטלו פעימות עתידיות (דחייה): ${installments(cancelled)}` } });
+    await notifyIfBusiness(tx, user, p, `${rejected.label}: ${[reason.label, rejectionNote].filter(Boolean).join(" — ")}`);
   });
   refresh(p);
   return { ok: true };
@@ -126,11 +150,10 @@ const fireSchema = z.object({
 });
 
 export async function firePlacement(placementId: string, _: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireOffice();
+  const { user, p } = await requirePlacement(placementId);
   const parsed = fireSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { endDate, endReason } = parsed.data;
-  const p = await db.placement.findUniqueOrThrow({ where: { id: placementId }, include: { status: true } });
   if (!p.startDate) return { error: "אין תאריך התחלה — אם העובד לא התחיל לעבוד, סמנו דחייה" };
   if (endDate < p.startDate) return { error: "תאריך הסיום לפני תאריך ההתחלה" };
 
@@ -142,6 +165,7 @@ export async function firePlacement(placementId: string, _: FormState, formData:
     });
     const cancelled = await cancelAfter(tx, placementId, endDate);
     if (cancelled) await tx.activity.create({ data: { candidateId: p.candidateId, placementId, userId: user.id, type: "billing", body: `בוטלו פעימות שמועדן אחרי ${date(endDate)}: ${installments(cancelled)}` } });
+    await notifyIfBusiness(tx, user, p, `${fired.label} ב-${date(endDate)}: ${endReason}`);
   });
   refresh(p);
   return { ok: true };
