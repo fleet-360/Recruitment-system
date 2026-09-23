@@ -3,6 +3,7 @@ import { KeyRound, LogOut, Sparkles } from "lucide-react";
 import { signOut } from "@/auth";
 import { requireOffice } from "@/lib/session";
 import { NavLinks } from "./nav-links";
+import { NotificationBell } from "./bell";
 
 export default async function OfficeLayout({ children }: { children: React.ReactNode }) {
   const user = await requireOffice();
@@ -20,7 +21,8 @@ export default async function OfficeLayout({ children }: { children: React.React
         <nav className="hidden flex-1 md:block">
           <NavLinks variant="top" isAdmin={isAdmin} />
         </nav>
-        <Link href="/account/password" className="ms-auto text-slate-500 hover:text-violet-700" title="החלפת סיסמה" aria-label="החלפת סיסמה">
+        <NotificationBell userId={user.id} />
+        <Link href="/account/password" className="text-slate-500 hover:text-violet-700" title="החלפת סיסמה" aria-label="החלפת סיסמה">
           <KeyRound size={20} />
         </Link>
         <form

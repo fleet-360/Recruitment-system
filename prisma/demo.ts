@@ -3,6 +3,7 @@
 import type { PrismaClient } from "../src/generated/prisma/client";
 import bcrypt from "bcryptjs";
 import { addDays, cancelledBy, planInstallments, today, type FeeType } from "../src/lib/fees";
+import { notifyOverdue } from "../src/lib/notifications";
 
 const DAY = 86_400_000;
 
@@ -258,6 +259,11 @@ async function seedUsers(db: PrismaClient) {
   console.log(`demo: ${demoUsers.length} users (password demo1234)`);
 }
 
+// ───── Step: notifications — run the daily job once so the bell shows the overdue installment
+async function seedNotifications(db: PrismaClient) {
+  console.log(`demo: ${await notifyOverdue(db)} overdue notifications`); // idempotent: each installment is notified once
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
@@ -267,4 +273,5 @@ export async function seedDemo(db: PrismaClient) {
   await seedPlacements(db, admin.id);
   await seedCollections(db);
   await seedUsers(db);
+  await seedNotifications(db);
 }
