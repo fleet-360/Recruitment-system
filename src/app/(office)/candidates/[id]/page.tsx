@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftRight, Briefcase, Coins, FileText, MessageCircle, Phone, StickyNote } from "lucide-react";
+import { ArrowLeftRight, Briefcase, CalendarDays, Coins, FileText, MessageCircle, Phone, StickyNote } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
 import { candidateWhere } from "@/lib/access";
@@ -14,7 +14,8 @@ import { DeleteFileButton } from "./delete-file-button";
 import { PlacementDrawer } from "../../placements/drawer";
 import { TaskItems, officeUsers, taskInclude } from "../../tasks/data";
 import { TaskForm } from "../../tasks/task-form";
-import { today } from "@/lib/fees";
+import { israelDateTime, today, toIsraelLocal } from "@/lib/fees";
+import { CancelInterviewButton, InterviewForm } from "../../interviews/interview-form";
 import { dayKey } from "@/lib/month";
 
 const when = (d: Date) => d.toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" });
@@ -38,6 +39,7 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
         include: { status: { select: { label: true, systemKey: true } }, job: { select: { title: true, company: { select: { name: true } }, branch: { select: { name: true } } } } },
       },
       tasks: { where: { doneAt: null }, orderBy: { dueAt: "asc" }, include: taskInclude },
+      interviews: { orderBy: { scheduledAt: "desc" }, take: 10, include: { placement: { select: { job: { select: { title: true } } } } } },
       activities: {
         orderBy: { createdAt: "desc" },
         include: { user: { select: { name: true, email: true } }, placement: { select: { job: { select: { title: true } } } } },
@@ -120,6 +122,31 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
                 </li>
               ))}
               {candidate.placements.length === 0 && <li className="text-slate-400">עדיין לא שויך למשרה — השיוך נעשה מדף המשרה</li>}
+            </ul>
+          </section>
+
+          <section className="glass space-y-3 p-5">
+            <h2 className="font-bold">ראיונות</h2>
+            <InterviewForm
+              candidateId={id}
+              placements={candidate.placements.filter((p) => !p.status?.systemKey).map((p) => ({ id: p.id, label: `${p.job.title} · ${p.job.company.name}` }))}
+              min={toIsraelLocal(new Date())}
+            />
+            <ul className="space-y-1 text-sm">
+              {candidate.interviews.map((i) => {
+                const past = i.scheduledAt < new Date();
+                return (
+                  <li key={i.id} className={`flex items-center gap-2 rounded-xl p-2 ${past ? "text-slate-400" : "bg-white/60"}`}>
+                    <CalendarDays size={16} className={`shrink-0 ${past ? "" : "text-violet-500"}`} />
+                    <span className="flex-1">
+                      <span className="font-medium">{israelDateTime(i.scheduledAt)}</span>
+                      {(i.placement || i.location) && <span className="block text-xs">{[i.placement?.job.title, i.location].filter(Boolean).join(" · ")}</span>}
+                    </span>
+                    {!past && <CancelInterviewButton id={i.id} />}
+                  </li>
+                );
+              })}
+              {candidate.interviews.length === 0 && <li className="text-slate-400">לא נקבעו ראיונות</li>}
             </ul>
           </section>
 

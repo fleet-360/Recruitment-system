@@ -2,7 +2,7 @@
 // Every feature step adds its own section here. Phones use the 050-555xxxx range; names are made up.
 import type { PrismaClient } from "../src/generated/prisma/client";
 import bcrypt from "bcryptjs";
-import { addDays, cancelledBy, planInstallments, today, type FeeType } from "../src/lib/fees";
+import { addDays, cancelledBy, fromIsraelLocal, planInstallments, today, type FeeType } from "../src/lib/fees";
 import { notifyOffice, notifyOverdue } from "../src/lib/notifications";
 import { openOverdueTasks } from "../src/lib/tasks";
 
@@ -300,6 +300,24 @@ async function seedTasks(db: PrismaClient, adminId: string) {
   console.log(`demo: ${demoTasks.length} tasks, ${old.length} follow-ups done, ${await openOverdueTasks(db)} collection tasks`);
 }
 
+// ───── Step: interviews — this week, one today; office screenings and one for a placement
+const demoInterviews = [
+  { candidate: "0505550103", days: 0, time: "11:00", location: "משרד — חדר ישיבות", forPlacement: false },
+  { candidate: "0505550108", days: 1, time: "09:30", location: "זום", forPlacement: false },
+  { candidate: "0505550102", days: 2, time: "14:00", location: "בסניף", forPlacement: true },
+  { candidate: "0505550107", days: 5, time: "10:15", location: null, forPlacement: false },
+];
+
+async function seedInterviews(db: PrismaClient) {
+  if (await db.interview.count()) return console.log("demo: interviews already there"); // idempotent — dates are relative to the first run
+  for (const i of demoInterviews) {
+    const candidate = await db.candidate.findUniqueOrThrow({ where: { phone: i.candidate }, include: { placements: { take: 1 } } });
+    const scheduledAt = fromIsraelLocal(`${addDays(today(), i.days).toISOString().slice(0, 10)}T${i.time}`);
+    await db.interview.create({ data: { candidateId: candidate.id, scheduledAt, location: i.location, placementId: i.forPlacement ? candidate.placements[0]?.id : null } });
+  }
+  console.log(`demo: ${demoInterviews.length} interviews`);
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
@@ -312,4 +330,5 @@ export async function seedDemo(db: PrismaClient) {
   await seedNotifications(db);
   await seedPortal(db);
   await seedTasks(db, admin.id);
+  await seedInterviews(db);
 }

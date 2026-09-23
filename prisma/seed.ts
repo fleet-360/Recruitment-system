@@ -30,6 +30,7 @@ const cities: Record<string, string[]> = {
 
 // Values the code relies on (Notion → מאגר ידע, 22/09/2026). Admins may rename them, not deactivate them.
 const systemKeys: [ListKey, string, string][] = [
+  ["candidate_status", "נקבע ראיון עבודה", "interview"], // scheduling an interview moves the candidate here
   ["candidate_status", "התקבל לעבודה", "ready"],
   ["placement_status", "נדחה", "rejected"],
   ["placement_status", "פוטר", "fired"],

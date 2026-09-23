@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { AlarmClock, BriefcaseBusiness, CircleCheck, Hourglass, ListTodo, UserPlus, Users, Wallet } from "lucide-react";
+import { AlarmClock, BriefcaseBusiness, CalendarDays, CircleCheck, Hourglass, ListTodo, UserPlus, Users, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
-import { addDays, israelMidnight, today } from "@/lib/fees";
+import { addDays, israelMidnight, israelTime, today } from "@/lib/fees";
 import { addMonths, parseMonth } from "@/lib/month";
 import { processSteps } from "../portal/data";
 import { openNotification } from "./notification-actions";
@@ -20,8 +20,9 @@ export default async function Home() {
   const thisMonth = { gte: month, lt: addMonths(month, 1) };
   const hiredId = (await processSteps()).at(-1)?.id;
 
-  const [newToday, active, hired, due, late, tasks, newJobs] = await Promise.all([
-    db.candidate.count({ where: { createdAt: { gte: israelMidnight() } } }),
+  const midnight = israelMidnight();
+  const [newToday, active, hired, due, late, tasks, newJobs, interviews] = await Promise.all([
+    db.candidate.count({ where: { createdAt: { gte: midnight } } }),
     db.placement.count({ where: { OR: [{ statusId: null }, { status: { systemKey: null, id: { not: hiredId } } }] } }),
     // null-safe on purpose: NOT { systemKey: "rejected" } is SQL NULL for regular statuses (systemKey null) and drops them
     db.placement.count({ where: { startDate: thisMonth, OR: [{ statusId: null }, { status: { systemKey: null } }, { status: { systemKey: { not: "rejected" } } }] } }),
@@ -30,6 +31,12 @@ export default async function Home() {
     db.task.findMany({ where: { assignedToId: user.id, doneAt: null, dueAt: { lt: addDays(now, 1) } }, include: taskInclude, orderBy: [{ dueAt: "asc" }, { title: "asc" }], take: 30 }),
     // "unseen" = my unread job_opened notification; opening it here marks it read, same as the bell
     db.notification.findMany({ where: { userId: user.id, type: "job_opened", readAt: null }, orderBy: { createdAt: "desc" }, take: 10 }),
+    // everyone's interviews today — a small office
+    db.interview.findMany({
+      where: { scheduledAt: { gte: midnight, lt: addDays(midnight, 1) } },
+      orderBy: { scheduledAt: "asc" },
+      include: { candidate: { select: { id: true, fullName: true } }, placement: { select: { job: { select: { company: { select: { name: true } } } } } } },
+    }),
   ]);
 
   const kpis = [
@@ -69,6 +76,28 @@ export default async function Home() {
         </section>
 
         <div className="space-y-4 lg:col-span-2">
+          <section className="glass space-y-3 p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 font-bold"><CalendarDays size={18} className="text-violet-500" /> ראיונות היום</h2>
+              <Link href="/interviews" className="text-sm text-violet-700 hover:underline">ליומן</Link>
+            </div>
+            {interviews.length ? (
+              <ul className="space-y-1 text-sm">
+                {interviews.map((i) => (
+                  <li key={i.id}>
+                    <Link href={`/candidates/${i.candidate.id}`} className="flex items-center gap-3 rounded-xl bg-white/60 p-2.5 hover:bg-white">
+                      <span className="font-bold text-violet-700" dir="ltr">{israelTime(i.scheduledAt)}</span>
+                      <span className="flex-1 font-medium">{i.candidate.fullName}</span>
+                      <span className="text-xs text-slate-500">{i.placement?.job.company.name ?? "במשרד"}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-3 text-center text-sm text-slate-500">אין ראיונות היום</p>
+            )}
+          </section>
+
           {newJobs.length > 0 && (
             <section className="glass space-y-3 p-5">
               <h2 className="flex items-center gap-2 font-bold"><BriefcaseBusiness size={18} className="text-violet-500" /> משרות חדשות מעסקים</h2>

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Building2, History, LayoutGrid, ListTodo, Settings, Users, Wallet } from "lucide-react";
+import { Briefcase, Building2, CalendarDays, History, LayoutGrid, ListTodo, Settings, Users, Wallet } from "lucide-react";
 
 const office = [
   { href: "/", label: "ראשי", Icon: LayoutGrid },
   { href: "/candidates", label: "מועמדים", Icon: Users },
   { href: "/tasks", label: "משימות", Icon: ListTodo },
+  { href: "/interviews", label: "יומן", Icon: CalendarDays },
   { href: "/companies", label: "חברות", Icon: Building2 },
   { href: "/jobs", label: "משרות", Icon: Briefcase },
   { href: "/collections", label: "גבייה", Icon: Wallet },
@@ -28,7 +29,8 @@ export function NavLinks({ variant, isAdmin = false, area = "office" }: { varian
   const home = items[0].href;
 
   return (
-    <ul className={variant === "bottom" ? "grid grid-flow-col auto-cols-fr gap-1" : "flex gap-1"}>
+    // bottom: at least 4rem per item and scroll sideways when they don't fit (the office menu has 8 for an admin)
+    <ul className={variant === "bottom" ? "grid grid-flow-col auto-cols-[minmax(4rem,1fr)] gap-1 overflow-x-auto [scrollbar-width:none]" : "flex gap-1"}>
       {items.filter((i) => isAdmin || !("adminOnly" in i)).map(({ href, label, Icon }) => {
         const active = href === home ? path === home : path.startsWith(href);
         return (
@@ -36,12 +38,14 @@ export function NavLinks({ variant, isAdmin = false, area = "office" }: { varian
             <Link
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm ${
-                variant === "bottom" ? "flex-col text-xs" : ""
+              title={label}
+              className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-sm ${
+                variant === "bottom" ? "flex-col px-1 text-xs whitespace-nowrap" : "px-3"
               } ${active ? "bg-primary-gradient text-white" : "text-slate-600 hover:bg-white/60"}`}
             >
               <Icon size={18} />
-              {label}
+              {/* top: icons only on tablets, labels from lg — 8 office items don't fit at 768px */}
+              <span className={variant === "top" && area === "office" ? "sr-only lg:not-sr-only" : ""}>{label}</span>
             </Link>
           </li>
         );

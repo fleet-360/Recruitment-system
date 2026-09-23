@@ -53,9 +53,23 @@ export const cancelledBy = (dueDate: Date, cutoff: Date) => dueDate.getTime() > 
 // Today in Israel as a UTC-midnight date, comparable with @db.Date columns.
 export const today = () => new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }));
 
-// Start of the Israeli day as a real instant — for timestamp columns like createdAt ("new today").
-export function israelMidnight(now = new Date()) {
-  const wall = (tz: string) => Date.parse(now.toLocaleString("en-US", { timeZone: tz }));
-  const offset = wall("Asia/Jerusalem") - wall("UTC"); // +2h / +3h in summer
-  return new Date(Date.parse(now.toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" })) - offset);
+// Israel wall-clock time ↔ real instants, for timestamp columns (createdAt, interviews).
+const TZ = "Asia/Jerusalem";
+const offsetAt = (at: Date) => Date.parse(at.toLocaleString("en-US", { timeZone: TZ })) - Date.parse(at.toLocaleString("en-US", { timeZone: "UTC" })); // +2h / +3h in summer
+
+// "2026-09-24T10:30" (a datetime-local value, Israel time) → the instant.
+export function fromIsraelLocal(local: string) {
+  const asUtc = Date.parse(`${local.slice(0, 16)}Z`);
+  return new Date(asUtc - offsetAt(new Date(asUtc)));
 }
+
+// The instant → "2026-09-24T10:30" in Israel time (for datetime-local inputs).
+export const toIsraelLocal = (d: Date) => d.toLocaleString("sv-SE", { timeZone: TZ }).slice(0, 16).replace(" ", "T");
+
+// Start of the Israeli day as a real instant — for "new today".
+export const israelMidnight = (now = new Date()) => fromIsraelLocal(`${now.toLocaleDateString("en-CA", { timeZone: TZ })}T00:00`);
+
+// Display in Israel time: "ה׳, 24.9, 10:30" / "10:30" / the Israeli date key "2026-09-24" (for grouping by day).
+export const israelDateTime = (d: Date) => d.toLocaleString("he-IL", { timeZone: TZ, weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+export const israelTime = (d: Date) => d.toLocaleTimeString("he-IL", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+export const israelDayKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: TZ });
