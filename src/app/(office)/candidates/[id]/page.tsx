@@ -12,6 +12,10 @@ import { DetailsForm } from "./details-form";
 import { FileUpload } from "./file-upload";
 import { DeleteFileButton } from "./delete-file-button";
 import { PlacementDrawer } from "../../placements/drawer";
+import { TaskItems, officeUsers, taskInclude } from "../../tasks/data";
+import { TaskForm } from "../../tasks/task-form";
+import { today } from "@/lib/fees";
+import { dayKey } from "@/lib/month";
 
 const when = (d: Date) => d.toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" });
 
@@ -33,6 +37,7 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
         orderBy: { createdAt: "desc" },
         include: { status: { select: { label: true, systemKey: true } }, job: { select: { title: true, company: { select: { name: true } }, branch: { select: { name: true } } } } },
       },
+      tasks: { where: { doneAt: null }, orderBy: { dueAt: "asc" }, include: taskInclude },
       activities: {
         orderBy: { createdAt: "desc" },
         include: { user: { select: { name: true, email: true } }, placement: { select: { job: { select: { title: true } } } } },
@@ -41,11 +46,12 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
   });
   if (!candidate) notFound();
 
-  const [statuses, cities, sources, languages] = await Promise.all([
+  const [statuses, cities, sources, languages, users] = await Promise.all([
     getList("candidate_status").then((l) => withCurrent(l, candidate.status)),
     getList("city").then((l) => withCurrent(l, candidate.city)),
     getList("lead_source").then((l) => withCurrent(l, candidate.source)),
     getList("language").then((l) => withCurrent(l, ...candidate.languages.map((x) => x.language))),
+    officeUsers(),
   ]);
 
   return (
@@ -115,6 +121,12 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
               ))}
               {candidate.placements.length === 0 && <li className="text-slate-400">עדיין לא שויך למשרה — השיוך נעשה מדף המשרה</li>}
             </ul>
+          </section>
+
+          <section className="glass space-y-3 p-5">
+            <h2 className="font-bold">משימות פתוחות</h2>
+            <TaskForm candidateId={id} users={users} meId={user.id} today={dayKey(today())} />
+            {candidate.tasks.length ? <TaskItems tasks={candidate.tasks} now={today()} showCandidate={false} /> : <p className="text-sm text-slate-400">אין משימות פתוחות</p>}
           </section>
 
           <section className="glass space-y-3 p-5">

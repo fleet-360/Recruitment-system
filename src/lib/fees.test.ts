@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cancelledBy, planInstallments, splitFee, termsError, totalFee } from "./fees";
+import { cancelledBy, israelMidnight, planInstallments, splitFee, termsError, totalFee } from "./fees";
 
 test("terms must add up to 100%", () => {
   assert.equal(termsError("fixed", 5000, [{ sharePercent: 50, daysAfterStart: 0 }, { sharePercent: 50, daysAfterStart: 30 }]), null);
@@ -38,4 +38,9 @@ test("cancel only installments due after the cutoff", () => {
   assert.equal(cancelledBy(new Date("2026-10-15"), end), false); // already owed
   assert.equal(cancelledBy(new Date("2026-11-01"), end), false); // due on the last day — owed
   assert.equal(cancelledBy(new Date("2026-11-30"), end), true);
+});
+
+test("israelMidnight is 00:00 in Israel, summer and winter", () => {
+  assert.equal(israelMidnight(new Date("2026-09-22T23:30:00Z")).toISOString(), "2026-09-22T21:00:00.000Z"); // 02:30 on the 23rd, IDT
+  assert.equal(israelMidnight(new Date("2026-01-10T12:00:00Z")).toISOString(), "2026-01-09T22:00:00.000Z"); // IST
 });

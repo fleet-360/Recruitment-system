@@ -9,6 +9,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
 import { normalizePhone } from "@/lib/phone";
+import { today } from "@/lib/fees";
 import { MAX_UPLOAD_BYTES, mimeByExt, uploadRoot } from "@/lib/uploads";
 import { Prisma } from "@/generated/prisma/client";
 
@@ -70,7 +71,7 @@ export async function createCandidate(_: FormState, formData: FormData): Promise
         statusId: firstStatus?.id,
         ownerUserId: user.id,
         activities: note ? { create: { type: "note", body: note, userId: user.id } } : undefined,
-        tasks: { create: { title: "פולואפ ראשוני", dueAt: new Date(), assignedToId: user.id } },
+        tasks: { create: { title: "פולואפ ראשוני", dueAt: today(), assignedToId: user.id } },
       },
     }));
   } catch (e) {

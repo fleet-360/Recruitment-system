@@ -4,6 +4,7 @@ import type { PrismaClient } from "../src/generated/prisma/client";
 import bcrypt from "bcryptjs";
 import { addDays, cancelledBy, planInstallments, today, type FeeType } from "../src/lib/fees";
 import { notifyOffice, notifyOverdue } from "../src/lib/notifications";
+import { openOverdueTasks } from "../src/lib/tasks";
 
 const DAY = 86_400_000;
 
@@ -277,6 +278,28 @@ async function seedPortal(db: PrismaClient) {
   console.log("demo: 1 portal job + office notification");
 }
 
+// ───── Step: tasks — a few by hand in every bucket, old follow-ups done, and the daily job's collection task
+const demoTasks = [
+  { title: "לשלוח קו״ח למנהלת הסניף", candidate: "0505550103", days: 0, to: "recruiter@example.com" },
+  { title: "לתאם ראיון שני", candidate: "0505550108", days: 2 },
+  { title: "לבדוק איך עבר השבוע הראשון", candidate: "0505550105", days: -2 },
+  { title: "להתקשר ללוגיסטיקה צפונית על משרות לחורף", days: 0 },
+  { title: "לעדכן מועמדים דוברי רוסית על משרה חדשה", days: 5, to: "recruiter@example.com" },
+];
+
+async function seedTasks(db: PrismaClient, adminId: string) {
+  // follow-ups of candidates older than 3 days were done a day after they came in
+  const old = await db.task.findMany({ where: { title: "פולואפ ראשוני", doneAt: null, dueAt: { lt: addDays(new Date(), -3) } } });
+  for (const t of old) await db.task.update({ where: { id: t.id }, data: { doneAt: addDays(t.dueAt, 1) } });
+  for (const t of demoTasks) {
+    if (await db.task.findFirst({ where: { title: t.title } })) continue; // idempotent
+    const candidate = t.candidate ? await db.candidate.findUniqueOrThrow({ where: { phone: t.candidate } }) : null;
+    const assignee = t.to ? await db.user.findUniqueOrThrow({ where: { email: t.to } }) : null;
+    await db.task.create({ data: { title: t.title, dueAt: addDays(today(), t.days), candidateId: candidate?.id, assignedToId: assignee?.id ?? adminId } });
+  }
+  console.log(`demo: ${demoTasks.length} tasks, ${old.length} follow-ups done, ${await openOverdueTasks(db)} collection tasks`);
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
@@ -288,4 +311,5 @@ export async function seedDemo(db: PrismaClient) {
   await seedUsers(db);
   await seedNotifications(db);
   await seedPortal(db);
+  await seedTasks(db, admin.id);
 }

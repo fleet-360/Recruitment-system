@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Building2, History, LayoutGrid, Settings, Users, Wallet } from "lucide-react";
+import { Briefcase, Building2, History, LayoutGrid, ListTodo, Settings, Users, Wallet } from "lucide-react";
 
 const office = [
   { href: "/", label: "ראשי", Icon: LayoutGrid },
   { href: "/candidates", label: "מועמדים", Icon: Users },
+  { href: "/tasks", label: "משימות", Icon: ListTodo },
   { href: "/companies", label: "חברות", Icon: Building2 },
   { href: "/jobs", label: "משרות", Icon: Briefcase },
   { href: "/collections", label: "גבייה", Icon: Wallet },

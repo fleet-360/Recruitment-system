@@ -52,3 +52,10 @@ export const cancelledBy = (dueDate: Date, cutoff: Date) => dueDate.getTime() > 
 
 // Today in Israel as a UTC-midnight date, comparable with @db.Date columns.
 export const today = () => new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }));
+
+// Start of the Israeli day as a real instant — for timestamp columns like createdAt ("new today").
+export function israelMidnight(now = new Date()) {
+  const wall = (tz: string) => Date.parse(now.toLocaleString("en-US", { timeZone: tz }));
+  const offset = wall("Asia/Jerusalem") - wall("UTC"); // +2h / +3h in summer
+  return new Date(Date.parse(now.toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" })) - offset);
+}
