@@ -5,6 +5,8 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { clearFails, isLocked, recordFail } from "@/lib/login-limit";
+import { logAccess } from "@/lib/access-log";
 import type { Role } from "@/generated/prisma/client";
 
 declare module "next-auth" {
@@ -34,15 +36,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // Business users.
     Credentials({
       credentials: { email: {}, password: {} },
-      async authorize(raw) {
+      async authorize(raw, request) {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
-        const user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
-        if (!user?.passwordHash || !user.isActive) return null;
-        return (await bcrypt.compare(parsed.data.password, user.passwordHash)) ? user : null;
+        const email = parsed.data.email.toLowerCase();
+        const user = isLocked(email) ? null : await db.user.findUnique({ where: { email } }); // locked: same message as a wrong password
+        const ok = !!user?.passwordHash && user.isActive && (await bcrypt.compare(parsed.data.password, user.passwordHash));
+        await logAccess(ok ? "login_ok" : "login_fail", { email, userId: user?.id }, request.headers);
+        if (!ok) {
+          recordFail(email);
+          return null;
+        }
+        clearFails(email);
+        return user;
       },
     }),
   ],
+  events: {
+    // Credentials sign-ins are logged in authorize (with IP); Google ones here.
+    async signIn({ user, account }) {
+      if (account?.provider === "google") await logAccess("login_ok", { email: user.email ?? undefined, userId: user.id });
+    },
+  },
   callbacks: {
     // Invite-only: Google sign-in works only for users an admin already created.
     async signIn({ user, account }) {

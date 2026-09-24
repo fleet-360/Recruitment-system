@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Building2, CalendarDays, History, LayoutGrid, ListTodo, Settings, Users, Wallet } from "lucide-react";
+import { Briefcase, Building2, CalendarDays, ChartColumn, History, LayoutGrid, ListTodo, Settings, Users, Wallet } from "lucide-react";
 
 const office = [
   { href: "/", label: "ראשי", Icon: LayoutGrid },
@@ -12,6 +12,7 @@ const office = [
   { href: "/companies", label: "חברות", Icon: Building2 },
   { href: "/jobs", label: "משרות", Icon: Briefcase },
   { href: "/collections", label: "גבייה", Icon: Wallet },
+  { href: "/reports", label: "דוחות", Icon: ChartColumn },
   { href: "/settings", label: "הגדרות", Icon: Settings, adminOnly: true },
 ];
 

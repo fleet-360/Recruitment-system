@@ -318,6 +318,76 @@ async function seedInterviews(db: PrismaClient) {
   console.log(`demo: ${demoInterviews.length} interviews`);
 }
 
+// ───── Step: reports — older placements with a full, back-dated status history, so the charts have months to show.
+// path: [status, days spent in it]; the last one is where it is now. Start date = the day it entered "תקופת ניסיון".
+const reportPlacements: { phone: string; job: string; daysAgo: number; path: [string, number][] }[] = [
+  { phone: "0505550106", job: "חדרן/ית", daysAgo: 150, path: [["נשלחו קורות חיים", 3], ["ראיונות", 6], ["תקופת ניסיון", 60], ["התקבל סופית", 0]] },
+  { phone: "0505550107", job: "מלקט/ת במחסן", daysAgo: 120, path: [["נשלחו קורות חיים", 2], ["ראיונות", 5], ["תקופת ניסיון", 45], ["התקבל סופית", 0]] },
+  { phone: "0505550101", job: "חדרן/ית", daysAgo: 110, path: [["נשלחו קורות חיים", 2], ["ראיונות", 3], ["תקופת ניסיון", 30], ["פוטר", 0]] },
+  { phone: "0505550110", job: "נהג/ת מלגזה", daysAgo: 100, path: [["נשלחו קורות חיים", 5], ["ראיונות", 4], ["נדחה", 0]] },
+  { phone: "0505550112", job: "מלקט/ת במחסן", daysAgo: 80, path: [["נשלחו קורות חיים", 3], ["נדחה", 0]] },
+  { phone: "0505550109", job: "בריסטה", daysAgo: 70, path: [["נשלחו קורות חיים", 4], ["ראיונות", 7], ["תקופת ניסיון", 0]] },
+  { phone: "0505550104", job: "נהג/ת מלגזה", daysAgo: 40, path: [["נשלחו קורות חיים", 6], ["ראיונות", 8], ["תקופת ניסיון", 0]] },
+];
+
+async function seedReports(db: PrismaClient, adminId: string) {
+  for (const d of reportPlacements) {
+    const [candidate, job] = await Promise.all([
+      db.candidate.findUniqueOrThrow({ where: { phone: d.phone } }),
+      db.job.findFirstOrThrow({ where: { title: d.job, description: "משרת דמו" }, include: { branch: { include: { paymentTerms: { orderBy: { seq: "asc" } } } } } }),
+    ]);
+    if (await db.placement.findUnique({ where: { candidateId_jobId: { candidateId: candidate.id, jobId: job.id } } })) continue; // idempotent
+
+    const createdAt = addDays(today(), -d.daysAgo);
+    let at = createdAt;
+    const history = d.path.map(([label, days]) => {
+      const row = { label, at };
+      at = addDays(at, days);
+      return row;
+    });
+    const last = history.at(-1)!;
+    const status = await db.lookupValue.findUniqueOrThrow({ where: { listKey_label: { listKey: "placement_status", label: last.label } } });
+    const reason = last.label === "נדחה" ? await db.lookupValue.findUniqueOrThrow({ where: { listKey_label: { listKey: "rejection_reason", label: "חוסר התאמה לעסק" } } }) : null;
+    const startDate = history.find((h) => h.label === "תקופת ניסיון")?.at ?? null;
+    const endDate = last.label === "פוטר" ? last.at : null;
+    const salary = job.salary ? Number(job.salary) : null;
+    const b = job.branch;
+    const plan = startDate && b.feeType
+      ? planInstallments(startDate, b.feeType as FeeType, Number(b.feeValue), salary, b.paymentTerms.map((t) => ({ sharePercent: Number(t.sharePercent), daysAfterStart: t.daysAfterStart })))
+      : null;
+
+    await db.placement.create({
+      data: {
+        candidateId: candidate.id, jobId: job.id, statusId: status.id, rejectionReasonId: reason?.id, createdAt,
+        startDate, endDate, endReason: endDate ? "סיים לעבוד (דמו)" : null, salary: startDate ? salary : null,
+        feeType: plan ? b.feeType : null, feeValue: plan ? b.feeValue : null,
+        installments: plan ? { create: plan.map((i) => ({ ...i, status: endDate && cancelledBy(i.dueDate, endDate) ? ("cancelled" as const) : ("expected" as const) })) } : undefined,
+        activities: {
+          create: history.map((h, i) => ({
+            candidateId: candidate.id, userId: adminId, type: "status_change" as const, createdAt: h.at,
+            fromValue: i ? history[i - 1].label : null, toValue: h.label, body: h.label === "נדחה" ? reason?.label : undefined,
+          })),
+        },
+      },
+    });
+  }
+  console.log(`demo: ${reportPlacements.length} back-dated placements for reports`);
+}
+
+// ───── Step: security — a few access-log rows (a failed then good sign-in) so the log screen isn't empty
+async function seedAccessLog(db: PrismaClient) {
+  if (await db.accessLog.count()) return;
+  const ago = (min: number) => new Date(Date.now() - min * 60_000);
+  await db.accessLog.createMany({
+    data: [
+      { action: "login_fail", email: "branch@example.com", ip: "10.0.0.7", createdAt: ago(62) },
+      { action: "login_ok", email: "branch@example.com", ip: "10.0.0.7", createdAt: ago(61) },
+      { action: "login_ok", email: "recruiter@example.com", ip: "10.0.0.5", createdAt: ago(30) },
+    ],
+  });
+  console.log("demo: 3 access-log rows");
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
@@ -325,10 +395,12 @@ export async function seedDemo(db: PrismaClient) {
   await seedCandidates(db, admin.id);
   await seedCompanies(db, admin.id);
   await seedPlacements(db, admin.id);
+  await seedReports(db, admin.id); // before collections, so its past installments get paid too
   await seedCollections(db);
   await seedUsers(db);
   await seedNotifications(db);
   await seedPortal(db);
   await seedTasks(db, admin.id);
   await seedInterviews(db);
+  await seedAccessLog(db);
 }

@@ -144,7 +144,7 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/candi
                       {c.fullName}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-end whitespace-nowrap" dir="ltr">{c.phone}</td>
+                  <td className="px-4 py-3 text-end whitespace-nowrap" dir="ltr">{c.anonymizedAt ? "—" : c.phone}</td>
                   <td className="px-4 py-3">
                     {c.status && <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs whitespace-nowrap text-violet-700">{c.status.label}</span>}
                   </td>

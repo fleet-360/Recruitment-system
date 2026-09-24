@@ -11,6 +11,7 @@ import { addNote, setCandidateStatus } from "../actions";
 import { DetailsForm } from "./details-form";
 import { FileUpload } from "./file-upload";
 import { DeleteFileButton } from "./delete-file-button";
+import { AnonymizeButton } from "./anonymize-button";
 import { PlacementDrawer } from "../../placements/drawer";
 import { TaskItems, officeUsers, taskInclude } from "../../tasks/data";
 import { TaskForm } from "../../tasks/task-form";
@@ -69,17 +70,24 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
               {[candidate.city?.label, ...candidate.languages.map((l) => l.language.label)].filter(Boolean).join(" · ") || "—"}
             </p>
           </div>
-          <a href={`tel:${candidate.phone}`} className="flex items-center gap-1 rounded-xl bg-white px-3 py-2 text-sm shadow-sm" dir="ltr">
-            <Phone size={16} /> {candidate.phone}
-          </a>
-          <a
-            href={`https://wa.me/${toIntl(candidate.phone)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-2 text-sm text-white"
-          >
-            <MessageCircle size={16} /> וואטסאפ
-          </a>
+          {candidate.anonymizedAt ? (
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-500">הנתונים האישיים נמחקו ב-{candidate.anonymizedAt.toLocaleDateString("he-IL")}</span>
+          ) : (
+            <>
+              <a href={`tel:${candidate.phone}`} className="flex items-center gap-1 rounded-xl bg-white px-3 py-2 text-sm shadow-sm" dir="ltr">
+                <Phone size={16} /> {candidate.phone}
+              </a>
+              <a
+                href={`https://wa.me/${toIntl(candidate.phone)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-2 text-sm text-white"
+              >
+                <MessageCircle size={16} /> וואטסאפ
+              </a>
+              {user.role === "admin" && <AnonymizeButton id={id} name={candidate.fullName} />}
+            </>
+          )}
         </div>
         <StatusStepper steps={statuses} currentId={candidate.statusId} action={setCandidateStatus.bind(null, id)} />
       </section>
@@ -87,7 +95,7 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
       <div className="grid gap-4 lg:grid-cols-5">
         <section className="glass p-5 lg:col-span-3">
           <h2 className="mb-4 font-bold">פרטים</h2>
-          <DetailsForm
+          {candidate.anonymizedAt ? <p className="text-sm text-slate-500">הפרטים נמחקו לבקשת המועמד. ההשמות והגבייה נשמרו ללא פרטים מזהים.</p> : <DetailsForm
             candidate={{
               id,
               fullName: candidate.fullName,
@@ -103,7 +111,7 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
             cities={cities}
             sources={sources}
             languages={languages}
-          />
+          />}
         </section>
 
         <div className="space-y-4 lg:col-span-2">

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/settings/lists", label: "רשימות" },
   { href: "/settings/users", label: "משתמשים" },
+  { href: "/settings/access", label: "יומן גישה" },
 ];
 
 export function SettingsTabs() {

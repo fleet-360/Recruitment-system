@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireOffice } from "@/lib/session";
+import { requireAdmin, requireOffice } from "@/lib/session";
 import { normalizePhone } from "@/lib/phone";
 import { today } from "@/lib/fees";
 import { MAX_UPLOAD_BYTES, mimeByExt, uploadRoot } from "@/lib/uploads";
@@ -183,6 +183,36 @@ export async function uploadFile(id: string, _: FormState, formData: FormData): 
 
   revalidatePath(`/candidates/${id}`);
   return { ok: true };
+}
+
+// Right to erasure (NFR-02, decided 23/09/2026): admin wipes the candidate's personal data but keeps the row,
+// so placements, installments and reports stay correct. Free text that may describe the person goes too.
+export async function anonymizeCandidate(id: string) {
+  const user = await requireAdmin();
+  const c = await db.candidate.findUniqueOrThrow({
+    where: { id },
+    select: { anonymizedAt: true, placements: { select: { id: true, installments: { select: { id: true } } } } },
+  });
+  if (c.anonymizedAt) return;
+  const entityIds = c.placements.flatMap((p) => [p.id, ...p.installments.map((i) => i.id)]);
+
+  await db.$transaction([
+    db.candidate.update({
+      where: { id },
+      data: { fullName: "מועמד שנמחק", phone: `deleted-${id}`, email: null, birthDate: null, cityId: null, summary: null, marketingConsent: false, anonymizedAt: new Date() },
+    }),
+    db.candidateLanguage.deleteMany({ where: { candidateId: id } }),
+    db.candidateFile.deleteMany({ where: { candidateId: id } }),
+    db.activity.deleteMany({ where: { candidateId: id, type: { in: ["note", "call", "whatsapp"] } } }),
+    db.activity.updateMany({ where: { candidateId: id, type: "status_change" }, data: { body: null } }),
+    db.placement.updateMany({ where: { candidateId: id }, data: { rejectionNote: null, endReason: null } }),
+    db.task.deleteMany({ where: { candidateId: id } }),
+    db.notification.deleteMany({ where: { entityId: { in: entityIds } } }), // messages carry the name
+    db.lead.updateMany({ where: { candidateId: id }, data: { fullName: null, phone: null, raw: {} } }),
+    db.activity.create({ data: { candidateId: id, userId: user.id, type: "note", body: "הנתונים האישיים נמחקו לבקשת המועמד" } }),
+  ]);
+  await rm(path.join(uploadRoot(), id), { recursive: true, force: true });
+  revalidatePath(`/candidates/${id}`);
 }
 
 export async function deleteFile(fileId: string) {

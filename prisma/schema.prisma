@@ -237,6 +237,7 @@ model Candidate {
   ownerUserId      String?
   owner            User?        @relation("CandidateOwner", fields: [ownerUserId], references: [id])
   marketingConsent Boolean      @default(false)
+  anonymizedAt     DateTime? // personal data erased on request (NFR-02); row kept for placements / billing
   createdAt        DateTime     @default(now())
 
   languages  CandidateLanguage[]
@@ -365,6 +366,20 @@ model Activity {
   createdAt   DateTime     @default(now())
 
   @@index([candidateId, createdAt])
+}
+
+// NFR-02 access log (Data Security Regulations): sign-ins and CV views. No FK on purpose — failed sign-ins may name no user,
+// and rows must survive user changes.
+model AccessLog {
+  id        String   @id @default(cuid())
+  action    String // login_ok | login_fail | cv_view
+  email     String?
+  userId    String?
+  entityId  String? // CandidateFile id for cv_view
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model Task {
