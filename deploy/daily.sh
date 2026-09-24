@@ -8,7 +8,7 @@
 #   openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE -in uploads-DATE.tar.gz.enc | docker compose -f compose.prod.yml exec -T app tar -C /data -xz
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export BACKUP_PASSPHRASE=$(grep '^BACKUP_PASSPHRASE=' .env | cut -d= -f2- | tr -d '"')
+export BACKUP_PASSPHRASE=${BACKUP_PASSPHRASE:-$(grep '^BACKUP_PASSPHRASE=' .env | cut -d= -f2- | tr -d '"')}
 [ -n "$BACKUP_PASSPHRASE" ] || { echo "BACKUP_PASSPHRASE missing in .env"; exit 1; }
 OUT=${BACKUP_DIR:-/var/backups/crm}
 STAMP=$(date +%F)

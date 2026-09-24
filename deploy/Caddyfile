@@ -1,0 +1,5 @@
+# Automatic HTTPS (Let's Encrypt) for $DOMAIN. Caddy sets X-Forwarded-For itself — the access log relies on it.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}

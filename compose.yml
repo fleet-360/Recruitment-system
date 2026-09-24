@@ -1,4 +1,4 @@
-# Local dev database. Production (app + db + Caddy on the VPS) gets added at deploy time.
+# Local dev database. Production: compose.prod.yml.
 services:
   db:
     image: postgres:17

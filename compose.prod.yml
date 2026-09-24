@@ -1,0 +1,53 @@
+# Production on the VPS: app + Postgres + Caddy (HTTPS). Setup steps: Notion → עלייה לאוויר.
+#   docker compose -f compose.prod.yml up -d --build
+# Reads .env next to this file: DOMAIN, POSTGRES_PASSWORD, AUTH_SECRET, CRON_SECRET, BACKUP_PASSPHRASE.
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: crm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "crm"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://crm:${POSTGRES_PASSWORD}@db:5432/crm?schema=public
+      UPLOAD_DIR: /data/uploads
+      AUTH_URL: https://${DOMAIN} # public address for Auth.js redirects (it sits behind Caddy)
+      AUTH_TRUST_HOST: "true"
+      TZ: Asia/Jerusalem
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:

@@ -1,0 +1,9 @@
+.git
+.next
+node_modules
+src/generated
+uploads
+.env*
+*.tsbuildinfo
+.claude
+.windsurf
