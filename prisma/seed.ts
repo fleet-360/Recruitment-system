@@ -34,6 +34,7 @@ const systemKeys: [ListKey, string, string][] = [
   ["candidate_status", "התקבל לעבודה", "ready"],
   ["placement_status", "נדחה", "rejected"],
   ["placement_status", "פוטר", "fired"],
+  ["lead_source", "קמפיין מטא", "meta"], // source of candidates converted from Meta leads
 ];
 
 async function main() {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageSquare, Search, Users } from "lucide-react";
+import { Inbox, MessageSquare, Search, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
 import { candidateWhere } from "@/lib/access";
@@ -18,11 +18,12 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/candi
   const param = (k: string) => (typeof sp[k] === "string" && sp[k] ? (sp[k] as string) : undefined);
   const [q, status, city, language, source] = ["q", "status", "city", "language", "source"].map(param);
 
-  const [statuses, cities, languages, sources] = await Promise.all([
+  const [statuses, cities, languages, sources, newLeads] = await Promise.all([
     getList("candidate_status"),
     getList("city"),
     getList("language"),
     getList("lead_source"),
+    db.lead.count({ where: { candidateId: null, dismissedAt: null } }),
   ]);
 
   const digits = q?.replace(/\D/g, "");
@@ -75,6 +76,10 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/candi
           <h1 className="text-2xl font-bold">מועמדים</h1>
           <p className="text-sm text-slate-500">{total} מועמדים</p>
         </div>
+        <Link href="/leads" className="glass flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-violet-700 hover:bg-white/80">
+          <Inbox size={16} /> לידים
+          {newLeads > 0 && <span className="bg-accent-gradient rounded-full px-2 text-xs text-white">{newLeads}</span>}
+        </Link>
         {user.role === "admin" && (
           <Link href="/sms" className="glass flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-violet-700 hover:bg-white/80">
             <MessageSquare size={16} /> תפוצת SMS

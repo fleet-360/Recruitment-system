@@ -248,7 +248,7 @@ model Candidate {
   interviews Interview[]
   activities Activity[]
   tasks      Task[]
-  lead       Lead?
+  leads      Lead[]
 }
 
 model CandidateLanguage {
@@ -269,16 +269,21 @@ model CandidateFile {
   uploadedAt  DateTime  @default(now())
 }
 
+// S-06 Meta leads (REQ-14). Imported from the Ads Manager export (task 22) and later the Meta API — same row shape.
 model Lead {
   id          String     @id @default(cuid())
-  metaLeadId  String     @unique
+  metaLeadId  String     @unique // Meta's lead id without the "l:" export prefix — re-imports and the API skip it
   campaign    String?
   fullName    String?
-  phone       String?
-  raw         Json
-  receivedAt  DateTime   @default(now())
-  candidateId String?    @unique
+  phone       String? // normalized when valid, as received otherwise
+  email       String?
+  raw         Json // the whole row (all form answers) by column name
+  receivedAt  DateTime   @default(now()) // Meta's created_time
+  dismissedAt DateTime? // "not relevant" — hidden from the inbox, can be restored
+  candidateId String? // set on conversion; a candidate may come from several campaigns
   candidate   Candidate? @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
 }
 
 // ───────── Placement = candidate × job

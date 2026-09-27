@@ -398,6 +398,31 @@ async function seedAccessLog(db: PrismaClient) {
   console.log("demo: 3 access-log rows");
 }
 
+// ───── Step: Meta leads (S-06) — an imported export: new leads (one whose phone is already a candidate, one with a bad
+// phone), one dismissed, one already converted
+async function seedLeads(db: PrismaClient) {
+  if (await db.lead.count()) return console.log("demo: leads already there");
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000);
+  const campaign = "גיוס מחסנאים ספטמבר";
+  const lead = (id: string, fullName: string, phone: string, h: number, city?: string) => ({
+    metaLeadId: id, campaign, fullName, phone, receivedAt: hoursAgo(h),
+    raw: { id: `l:${id}`, campaign_name: campaign, full_name: fullName, phone_number: `p:${phone}`, ...(city && { "באיזו עיר את/ה גר/ה?": city }) },
+  });
+  const converted = await db.candidate.findUnique({ where: { phone: "0505550106" }, select: { id: true } });
+  await db.lead.createMany({
+    data: [
+      lead("900000000000001", "עומר בדוי", "0505550301", 2, "חולון"),
+      lead("900000000000002", "ליאת דמיונית", "0505550302", 5, "רמת גן"),
+      lead("900000000000003", "סאלח ממוצא", "0505550303", 26),
+      lead("900000000000004", "יוליה פטרוב", "0505550103", 30, "אשדוד"), // already a candidate → linked on conversion
+      lead("900000000000005", "בדיקה", "12345", 50), // bad phone → stays in the inbox
+      { ...lead("900000000000006", "ספאם ספאמי", "0505550304", 72), dismissedAt: hoursAgo(70) },
+      { ...lead("900000000000007", "שירה מזרחי", "0505550106", 96, "באר שבע"), candidateId: converted?.id },
+    ],
+  });
+  console.log("demo: 7 meta leads");
+}
+
 export async function seedDemo(db: PrismaClient) {
   const admin = await db.user.findFirst({ where: { role: "admin" }, orderBy: { createdAt: "asc" } });
   if (!admin) throw new Error("Demo data needs an admin — run with SEED_ADMIN_EMAIL first");
@@ -414,4 +439,5 @@ export async function seedDemo(db: PrismaClient) {
   await seedInterviews(db);
   await seedAccessLog(db);
   await seedSms(db, admin.id);
+  await seedLeads(db);
 }
