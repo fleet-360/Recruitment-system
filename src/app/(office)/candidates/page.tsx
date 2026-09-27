@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Users } from "lucide-react";
+import { MessageSquare, Search, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
 import { candidateWhere } from "@/lib/access";
@@ -75,6 +75,11 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/candi
           <h1 className="text-2xl font-bold">מועמדים</h1>
           <p className="text-sm text-slate-500">{total} מועמדים</p>
         </div>
+        {user.role === "admin" && (
+          <Link href="/sms" className="glass flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm text-violet-700 hover:bg-white/80">
+            <MessageSquare size={16} /> תפוצת SMS
+          </Link>
+        )}
         <QuickAdd sources={sources} defaultOpen={sp.new === "1"} />
       </section>
 

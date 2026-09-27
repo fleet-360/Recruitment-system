@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftRight, Briefcase, CalendarDays, Coins, FileText, MessageCircle, Phone, StickyNote } from "lucide-react";
+import { ArrowLeftRight, Briefcase, CalendarDays, Coins, FileText, MessageCircle, MessageSquare, Phone, StickyNote } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
 import { candidateWhere } from "@/lib/access";
@@ -190,7 +190,7 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
             <ul className="max-h-96 space-y-2 overflow-y-auto text-sm">
               {candidate.activities.map((a) => (
                 <li key={a.id} className="flex gap-2 rounded-xl bg-white/60 p-3">
-                  {a.type === "status_change" ? <ArrowLeftRight size={16} className="mt-0.5 shrink-0 text-violet-500" /> : a.type === "billing" ? <Coins size={16} className="mt-0.5 shrink-0 text-emerald-500" /> : <StickyNote size={16} className="mt-0.5 shrink-0 text-amber-500" />}
+                  {a.type === "status_change" ? <ArrowLeftRight size={16} className="mt-0.5 shrink-0 text-violet-500" /> : a.type === "billing" ? <Coins size={16} className="mt-0.5 shrink-0 text-emerald-500" /> : a.type === "sms" ? <MessageSquare size={16} className="mt-0.5 shrink-0 text-sky-500" /> : <StickyNote size={16} className="mt-0.5 shrink-0 text-amber-500" />}
                   <div className="flex-1">
                     <p className="whitespace-pre-wrap">
                       {a.placement && <span className="font-medium text-violet-700">{a.placement.job.title}: </span>}

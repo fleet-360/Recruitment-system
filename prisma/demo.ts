@@ -374,6 +374,16 @@ async function seedReports(db: PrismaClient, adminId: string) {
   console.log(`demo: ${reportPlacements.length} back-dated placements for reports`);
 }
 
+// ───── Step: SMS (S-15) — one past dry-run campaign to the candidates with consent, written to their history
+async function seedSms(db: PrismaClient, adminId: string) {
+  if (await db.smsCampaign.count()) return console.log("demo: sms campaign already there");
+  const recipients = await db.candidate.findMany({ where: { marketingConsent: true, anonymizedAt: null }, select: { id: true } });
+  const message = "נפתחו משרות חדשות באזור שלך! חזרו אלינו לפרטים";
+  await db.smsCampaign.create({ data: { message, segment: "כל המועמדים", sentCount: recipients.length, dryRun: true, sentById: adminId, createdAt: addDays(today(), -7) } });
+  await db.activity.createMany({ data: recipients.map((r) => ({ candidateId: r.id, userId: adminId, type: "sms" as const, body: `SMS תפוצה (בדיקה): ${message}`, createdAt: addDays(today(), -7) })) });
+  console.log(`demo: sms campaign to ${recipients.length} candidates`);
+}
+
 // ───── Step: security — a few access-log rows (a failed then good sign-in) so the log screen isn't empty
 async function seedAccessLog(db: PrismaClient) {
   if (await db.accessLog.count()) return;
@@ -403,4 +413,5 @@ export async function seedDemo(db: PrismaClient) {
   await seedTasks(db, admin.id);
   await seedInterviews(db);
   await seedAccessLog(db);
+  await seedSms(db, admin.id);
 }

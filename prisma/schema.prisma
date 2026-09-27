@@ -77,6 +77,7 @@ model User {
   activities      Activity[]
   tasks           Task[]
   jobsCreated     Job[]
+  smsCampaigns    SmsCampaign[]
 }
 
 model Account {
@@ -238,6 +239,7 @@ model Candidate {
   owner            User?        @relation("CandidateOwner", fields: [ownerUserId], references: [id])
   marketingConsent Boolean      @default(false)
   anonymizedAt     DateTime? // personal data erased on request (NFR-02); row kept for placements / billing
+  optOutToken      String?      @unique // short random id in the SMS removal link (/u/<token>), created at first send
   createdAt        DateTime     @default(now())
 
   languages  CandidateLanguage[]
@@ -350,6 +352,7 @@ enum ActivityType {
   whatsapp
   status_change
   billing // installments created / recalculated / cancelled
+  sms // bulk SMS sent to the candidate (S-15)
 }
 
 model Activity {
@@ -396,4 +399,17 @@ model Task {
   doneAt        DateTime?
 
   @@index([assignedToId, doneAt, dueAt])
+}
+
+// S-15 bulk SMS (REQ-13). One row per send; each recipient also gets an ACTIVITY of type sms.
+model SmsCampaign {
+  id          String   @id @default(cuid())
+  message     String // as typed, without the removal-link footer
+  segment     String // human-readable filters, e.g. "אזור: מרכז · שפה: רוסית"
+  sentCount   Int      @default(0)
+  failedCount Int      @default(0)
+  dryRun      Boolean  @default(false) // InforU not configured — logged, nothing delivered
+  sentById    String
+  sentBy      User     @relation(fields: [sentById], references: [id])
+  createdAt   DateTime @default(now())
 }
