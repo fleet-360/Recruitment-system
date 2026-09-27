@@ -25,6 +25,7 @@ export function InterviewForm({ candidateId, placements, min }: { candidateId: s
         <CalendarPlus size={16} /> קביעת ראיון
       </button>
       {state?.error && <p className="w-full text-sm text-red-600">{state.error}</p>}
+      {state?.notice && <p className="w-full text-sm text-slate-600">{state.notice}</p>}
     </form>
   );
 }

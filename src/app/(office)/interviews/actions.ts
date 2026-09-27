@@ -6,8 +6,9 @@ import { db } from "@/lib/db";
 import { requireOffice } from "@/lib/session";
 import { candidateWhere } from "@/lib/access";
 import { fromIsraelLocal, israelDateTime } from "@/lib/fees";
+import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
 
-export type InterviewState = { error?: string; savedAt?: number } | null;
+export type InterviewState = { error?: string; notice?: string; savedAt?: number } | null;
 
 const label = (at: Date, location: string | null) =>
   `${israelDateTime(at)}${location ? ` · ${location}` : ""}`;
@@ -25,7 +26,8 @@ const schema = z.object({
 });
 
 // S-12: schedule an interview from the candidate card. Moves a candidate who is at an earlier stage to "נקבע ראיון"
-// (decided 23/09/2026) — never backwards. Office only; Google Calendar invites come with task 25.
+// (decided 23/09/2026) — never backwards. Office only. Task 25: a Google Calendar invite from the scheduling user to the
+// candidate and, for a placement, the branch contacts (company-wide contacts when the branch has none).
 export async function createInterview(candidateId: string, _: InterviewState, formData: FormData): Promise<InterviewState> {
   const user = await requireOffice();
   const parsed = schema.safeParse(Object.fromEntries(formData));
@@ -35,11 +37,17 @@ export async function createInterview(candidateId: string, _: InterviewState, fo
 
   const candidate = await db.candidate.findFirst({ where: { AND: [{ id: candidateId }, await candidateWhere(user)] }, include: { status: true } });
   if (!candidate) return { error: "המועמד לא נמצא" };
-  if (placementId && !(await db.placement.findFirst({ where: { id: placementId, candidateId }, select: { id: true } }))) return { error: "ההשמה לא נמצאה" };
+  const placement = placementId
+    ? await db.placement.findFirst({
+        where: { id: placementId, candidateId },
+        include: { job: { include: { company: { include: { contacts: { where: { branchId: null } } } }, branch: { include: { contacts: true } } } } },
+      })
+    : null;
+  if (placementId && !placement) return { error: "ההשמה לא נמצאה" };
   const target = await db.lookupValue.findUnique({ where: { listKey_systemKey: { listKey: "candidate_status", systemKey: "interview" } } });
   const moveStatus = target && (!candidate.status || candidate.status.sortOrder < target.sortOrder);
 
-  await db.$transaction([
+  const [interview] = await db.$transaction([
     db.interview.create({ data: { candidateId, placementId, scheduledAt, location } }),
     db.activity.create({ data: { candidateId, placementId, userId: user.id, type: "note", body: `נקבע ראיון: ${label(scheduledAt, location)}` } }),
     ...(moveStatus
@@ -49,8 +57,24 @@ export async function createInterview(candidateId: string, _: InterviewState, fo
         ]
       : []),
   ]);
+
+  // After the save, outside the transaction: Google being down must not lose the interview.
+  const job = placement?.job;
+  const contacts = job ? (job.branch.contacts.length ? job.branch.contacts : job.company.contacts) : [];
+  const attendees = [candidate.email, ...contacts.map((c) => c.email)].filter((e): e is string => !!e);
+  const eventId = await createCalendarEvent(user.id, {
+    start: scheduledAt,
+    minutes: 60, // ponytail: fixed one-hour slot; add a duration field if interviews vary
+    title: `ראיון עבודה: ${candidate.fullName}${job ? ` · ${job.title} · ${job.company.name}` : ""}`,
+    location,
+    attendees,
+  });
+  if (eventId) await db.interview.update({ where: { id: interview.id }, data: { googleEventId: eventId, organizerId: user.id } });
   refresh(candidateId);
-  return { savedAt: Date.now() };
+  const notice = eventId
+    ? attendees.length ? `זימון נשלח ביומן Google ל-${attendees.length} משתתפים` : "הראיון נוסף ליומן Google (אין כתובות מייל לזימון)"
+    : process.env.AUTH_GOOGLE_ID ? "הראיון נשמר בלי זימון ביומן — יש להתחבר פעם אחת עם Google" : undefined;
+  return { savedAt: Date.now(), notice };
 }
 
 // Cancel = delete, with a line in the candidate's history. The candidate's status stays as it is.
@@ -58,6 +82,7 @@ export async function cancelInterview(id: string) {
   const user = await requireOffice();
   const i = await db.interview.findUnique({ where: { id } });
   if (!i) return;
+  if (i.googleEventId && i.organizerId) await deleteCalendarEvent(i.organizerId, i.googleEventId); // Google notifies the attendees
   await db.$transaction([
     db.interview.delete({ where: { id } }),
     db.activity.create({ data: { candidateId: i.candidateId, placementId: i.placementId, userId: user.id, type: "note", body: `ראיון בוטל: ${label(i.scheduledAt, i.location)}` } }),

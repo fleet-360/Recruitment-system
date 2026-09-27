@@ -316,6 +316,7 @@ model Interview {
   scheduledAt   DateTime
   location      String?
   googleEventId String?
+  organizerId   String? // user whose Google Calendar holds the event — cancel deletes it from there (task 25)
 }
 
 enum InstallmentStatus {

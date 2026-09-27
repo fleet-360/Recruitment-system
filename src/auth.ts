@@ -22,7 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" }, // required by the credentials provider
   pages: { signIn: "/login" },
   providers: [
-    // Office users. Offline access keeps a refresh token for Google Calendar invites.
+    // Invite-only for any existing user. Offline access keeps a refresh token for Google Calendar invites.
     Google({
       allowDangerousEmailAccountLinking: true, // safe: invite-only (see signIn), Google verifies the email
       authorization: {
@@ -55,7 +55,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   events: {
     // Credentials sign-ins are logged in authorize (with IP); Google ones here.
     async signIn({ user, account }) {
-      if (account?.provider === "google") await logAccess("login_ok", { email: user.email ?? undefined, userId: user.id });
+      if (account?.provider !== "google") return;
+      await logAccess("login_ok", { email: user.email ?? undefined, userId: user.id });
+      // The adapter saves tokens only when the account is first linked; keep them fresh so signing in again
+      // repairs a revoked/expired Calendar token (task 25).
+      await db.account.updateMany({
+        where: { provider: "google", providerAccountId: account.providerAccountId },
+        data: {
+          access_token: account.access_token,
+          expires_at: account.expires_at,
+          scope: account.scope,
+          id_token: account.id_token,
+          ...(account.refresh_token ? { refresh_token: account.refresh_token } : {}),
+        },
+      });
     },
   },
   callbacks: {
