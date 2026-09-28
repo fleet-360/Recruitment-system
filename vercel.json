@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "prisma generate && prisma migrate deploy && next build",
+  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"staging\" ]",
+  "regions": ["fra1"],
+  "crons": [{ "path": "/api/cron/daily", "schedule": "0 3 * * *" }]
+}

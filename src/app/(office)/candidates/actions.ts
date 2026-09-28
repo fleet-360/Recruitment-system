@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 import { requireAdmin, requireOffice } from "@/lib/session";
 import { normalizePhone } from "@/lib/phone";
 import { today } from "@/lib/fees";
-import { MAX_UPLOAD_BYTES, mimeByExt, uploadRoot } from "@/lib/uploads";
+import { MAX_UPLOAD_BYTES, mimeByExt, uploadRoot, uploadsDisabled } from "@/lib/uploads";
 import { Prisma } from "@/generated/prisma/client";
 
 export type FormState = { error?: string; existingId?: string; ok?: boolean } | null;
@@ -168,6 +168,7 @@ export async function addNote(id: string, formData: FormData) {
 
 export async function uploadFile(id: string, _: FormState, formData: FormData): Promise<FormState> {
   await requireOffice();
+  if (uploadsDisabled()) return { error: "העלאת קבצים לא זמינה בסביבה הזו" };
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "לא נבחר קובץ" };
   if (file.size > MAX_UPLOAD_BYTES) return { error: "הקובץ גדול מ-10MB" };

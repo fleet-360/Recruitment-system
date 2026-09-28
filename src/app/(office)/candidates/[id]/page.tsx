@@ -10,6 +10,7 @@ import { StatusStepper } from "@/components/status-stepper";
 import { addNote, setCandidateStatus } from "../actions";
 import { DetailsForm } from "./details-form";
 import { FileUpload } from "./file-upload";
+import { uploadsDisabled } from "@/lib/uploads";
 import { DeleteFileButton } from "./delete-file-button";
 import { AnonymizeButton } from "./anonymize-button";
 import { PlacementDrawer } from "../../placements/drawer";
@@ -166,7 +167,11 @@ export default async function CandidatePage({ params, searchParams }: PageProps<
 
           <section className="glass space-y-3 p-5">
             <h2 className="font-bold">קבצים</h2>
-            <FileUpload candidateId={id} />
+            {uploadsDisabled() ? (
+              <p className="rounded-xl border-2 border-dashed border-slate-200 p-3 text-center text-sm text-slate-500">העלאת קו״ח לא זמינה בסביבת הבדיקה</p>
+            ) : (
+              <FileUpload candidateId={id} />
+            )}
             <ul className="space-y-1 text-sm">
               {candidate.files.map((f) => (
                 <li key={f.id} className="flex items-center">
