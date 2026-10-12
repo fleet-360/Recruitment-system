@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { keepValues } from "@/lib/keep-values";
 import type { Option } from "@/lib/lookups";
+import { calcAge } from "@/lib/age";
 import { updateCandidate } from "../actions";
 
 type Candidate = {
@@ -11,8 +12,11 @@ type Candidate = {
   phone: string;
   email: string | null;
   birthDate: string | null; // yyyy-mm-dd
+  age: number | null; // manual entry, only meaningful when birthDate is null
+  idNumber: string | null;
   cityId: string | null;
   sourceId: string | null;
+  previousExperience: string | null;
   summary: string | null;
   marketingConsent: boolean;
   languageIds: string[];
@@ -33,6 +37,7 @@ export function DetailsForm({
   languages: Option[];
 }) {
   const [state, action, pending] = useActionState(updateCandidate.bind(null, c.id), null);
+  const [birthDate, setBirthDate] = useState(c.birthDate ?? "");
 
   return (
     <form onSubmit={keepValues(action)} className="grid gap-3 text-sm sm:grid-cols-2">
@@ -50,7 +55,19 @@ export function DetailsForm({
       </label>
       <label>
         תאריך לידה
-        <input name="birthDate" type="date" defaultValue={c.birthDate ?? ""} className={field} />
+        <input name="birthDate" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className={field} />
+      </label>
+      {birthDate ? (
+        <p className="self-end pb-2.5 text-sm text-slate-500">גיל: {calcAge(new Date(birthDate))} (מחושב מתאריך הלידה)</p>
+      ) : (
+        <label>
+          גיל
+          <input name="age" type="number" min={1} max={119} defaultValue={c.age ?? ""} className={field} />
+        </label>
+      )}
+      <label>
+        ת.ז
+        <input name="idNumber" defaultValue={c.idNumber ?? ""} dir="ltr" className={`${field} text-end`} />
       </label>
       <label>
         עיר
@@ -65,6 +82,10 @@ export function DetailsForm({
           <option value="">— בחר מקור —</option>
           {sources.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
+      </label>
+      <label className="sm:col-span-2">
+        ניסיון קודם
+        <textarea name="previousExperience" defaultValue={c.previousExperience ?? ""} rows={2} className={field} />
       </label>
 
       <fieldset className="sm:col-span-2">

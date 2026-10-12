@@ -3,17 +3,33 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { keepValues } from "@/lib/keep-values";
-import { UserPlus, X } from "lucide-react";
+import { Upload, UserPlus, X } from "lucide-react";
 import type { Option } from "@/lib/lookups";
 import { createCandidate, findByPhone } from "./actions";
 
+// Same list as file-upload.tsx's accept attribute — duplicated rather than imported from "@/lib/uploads",
+// which also pulls in db/fs and can't be bundled into a client component.
+const CV_ACCEPT = ".pdf,.doc,.docx,.jpg,.jpeg,.png";
+
 const field = "w-full rounded-xl border border-slate-200 bg-white p-3";
 
-// S-03: 4 fields, Enter saves, duplicate warning while typing the phone.
-export function QuickAdd({ sources, defaultOpen }: { sources: Option[]; defaultOpen: boolean }) {
+// S-03: Enter saves, duplicate warning while typing the phone.
+// task 31: city, previous experience and CV are optional — kept quick, not required.
+export function QuickAdd({
+  cities,
+  sources,
+  defaultOpen,
+  uploadsDisabled,
+}: {
+  cities: Option[];
+  sources: Option[];
+  defaultOpen: boolean;
+  uploadsDisabled: boolean;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, action, pending] = useActionState(createCandidate, null);
   const [dup, setDup] = useState<{ id: string; fullName: string } | null>(null);
+  const [cvName, setCvName] = useState<string | null>(null);
 
   useEffect(() => {
     if (defaultOpen) dialog.current?.showModal();
@@ -66,6 +82,17 @@ export function QuickAdd({ sources, defaultOpen }: { sources: Option[]; defaultO
             </p>
           )}
           <label className="block text-sm">
+            עיר
+            <select name="cityId" className={field} defaultValue="">
+              <option value="">— בחר עיר —</option>
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
             מקור
             <select name="sourceId" className={field} defaultValue="">
               <option value="">— בחר מקור —</option>
@@ -77,9 +104,20 @@ export function QuickAdd({ sources, defaultOpen }: { sources: Option[]; defaultO
             </select>
           </label>
           <label className="block text-sm">
+            ניסיון קודם
+            <textarea name="previousExperience" rows={2} className={field} />
+          </label>
+          <label className="block text-sm">
             הערה
             <textarea name="note" rows={2} className={field} />
           </label>
+          {!uploadsDisabled && (
+            <label className="flex cursor-pointer items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 p-3 text-sm text-slate-500 hover:bg-white/60">
+              <Upload size={16} />
+              {cvName ?? "קורות חיים (אופציונלי)"}
+              <input type="file" name="file" accept={CV_ACCEPT} className="sr-only" onChange={(e) => setCvName(e.target.files?.[0]?.name ?? null)} />
+            </label>
+          )}
           {state?.error && !state.existingId && <p className="text-sm text-red-600">{state.error}</p>}
           <button disabled={pending || !!dup} className="bg-accent-gradient w-full rounded-xl p-3 font-medium text-white disabled:opacity-50">
             {pending ? "שומר…" : "שמירה"}

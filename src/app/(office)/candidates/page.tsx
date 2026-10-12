@@ -6,6 +6,7 @@ import { candidateWhere } from "@/lib/access";
 import { getList } from "@/lib/lookups";
 import type { Prisma } from "@/generated/prisma/client";
 import { AutoFilterForm, ClearFiltersButton } from "@/components/auto-filter-form";
+import { uploadsDisabled } from "@/lib/uploads";
 import { QuickAdd } from "./quick-add";
 
 const daysSince = (d: Date) => Math.floor((Date.now() - d.getTime()) / 86_400_000);
@@ -85,7 +86,7 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/candi
             <MessageSquare size={16} /> תפוצת SMS
           </Link>
         )}
-        <QuickAdd sources={sources} defaultOpen={sp.new === "1"} />
+        <QuickAdd cities={cities} sources={sources} defaultOpen={sp.new === "1"} uploadsDisabled={uploadsDisabled()} />
       </section>
 
       <AutoFilterForm action="/candidates" className="glass flex flex-wrap gap-2 p-3">
