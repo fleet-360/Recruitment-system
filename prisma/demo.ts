@@ -13,10 +13,23 @@ async function lookup(db: PrismaClient, listKey: "candidate_status" | "lead_sour
 }
 
 // ───── Step: candidates
-const candidates = [
-  { fullName: "נועה לוי", phone: "0505550101", city: "חיפה", status: "התקבל", source: "דובי הסעות", languages: ["עברית", "אנגלית"], daysAgo: 1 },
-  { fullName: "מוחמד חסן", phone: "0505550102", city: "נצרת", status: "בוצעה שיחת טלפון", source: "דובי הסעות", languages: ["ערבית", "עברית"], daysAgo: 3 },
-  { fullName: "יוליה פטרוב", phone: "0505550103", city: "אשדוד", status: "נקבע ראיון עבודה", source: "קמפיין מטא", languages: ["רוסית", "עברית"], daysAgo: 6 },
+const candidates: {
+  fullName: string;
+  phone: string;
+  city: string;
+  status: string;
+  source: string;
+  languages: string[];
+  daysAgo: number;
+  birthDate?: string;
+  age?: number;
+  idNumber?: string;
+  previousExperience?: string;
+}[] = [
+  // task 31: a few demo candidates exercise birthDate→derived age, manual age (no birthDate), and ת.ז.
+  { fullName: "נועה לוי", phone: "0505550101", city: "חיפה", status: "התקבל", source: "דובי הסעות", languages: ["עברית", "אנגלית"], daysAgo: 1, birthDate: "1994-05-12", previousExperience: "שנתיים כמלצרית בבית קפה" },
+  { fullName: "מוחמד חסן", phone: "0505550102", city: "נצרת", status: "בוצעה שיחת טלפון", source: "דובי הסעות", languages: ["ערבית", "עברית"], daysAgo: 3, age: 29 },
+  { fullName: "יוליה פטרוב", phone: "0505550103", city: "אשדוד", status: "נקבע ראיון עבודה", source: "קמפיין מטא", languages: ["רוסית", "עברית"], daysAgo: 6, idNumber: "234567890" },
   { fullName: "אבי כהן", phone: "0505550104", city: "תל אביב-יפו", status: "מבחן אמינות", source: "וואטסאפ", languages: ["עברית"], daysAgo: 9 },
   { fullName: "תגסט אבבה", phone: "0505550105", city: "נתניה", status: "התקבל לעבודה", source: "דובי הסעות", languages: ["אמהרית", "עברית"], daysAgo: 14 },
   { fullName: "שירה מזרחי", phone: "0505550106", city: "באר שבע", status: "התקבל", source: "קמפיין מטא", languages: ["עברית", "צרפתית"], daysAgo: 0 },
@@ -55,6 +68,10 @@ async function seedCandidates(db: PrismaClient, adminId: string) {
       data: {
         fullName: c.fullName,
         phone: c.phone,
+        birthDate: c.birthDate ? new Date(c.birthDate) : undefined,
+        age: c.age,
+        idNumber: c.idNumber,
+        previousExperience: c.previousExperience,
         cityId: city.id,
         statusId: status.id,
         sourceId: source.id,

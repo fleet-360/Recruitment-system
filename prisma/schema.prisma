@@ -223,24 +223,27 @@ model Job {
 // ───────── Candidates
 
 model Candidate {
-  id               String       @id @default(cuid())
-  fullName         String
-  phone            String       @unique // duplicate check
-  email            String?
-  birthDate        DateTime?    @db.Date
-  cityId           String?
-  city             LookupValue? @relation("CandidateCity", fields: [cityId], references: [id])
-  statusId         String?
-  status           LookupValue? @relation("CandidateStatus", fields: [statusId], references: [id])
-  sourceId         String?
-  source           LookupValue? @relation("CandidateSource", fields: [sourceId], references: [id])
-  summary          String? // visible to businesses
-  ownerUserId      String?
-  owner            User?        @relation("CandidateOwner", fields: [ownerUserId], references: [id])
-  marketingConsent Boolean      @default(false)
-  anonymizedAt     DateTime? // personal data erased on request (NFR-02); row kept for placements / billing
-  optOutToken      String?      @unique // short random id in the SMS removal link (/u/<token>), created at first send
-  createdAt        DateTime     @default(now())
+  id                 String       @id @default(cuid())
+  fullName           String
+  phone              String       @unique // duplicate check
+  email              String?
+  birthDate          DateTime?    @db.Date
+  age                Int? // task 31: manual entry, only used when birthDate is empty — derived age is computed, not stored
+  idNumber           String?
+  cityId             String?
+  city               LookupValue? @relation("CandidateCity", fields: [cityId], references: [id])
+  statusId           String?
+  status             LookupValue? @relation("CandidateStatus", fields: [statusId], references: [id])
+  sourceId           String?
+  source             LookupValue? @relation("CandidateSource", fields: [sourceId], references: [id])
+  summary            String? // visible to businesses
+  previousExperience String? // task 31
+  ownerUserId        String?
+  owner              User?        @relation("CandidateOwner", fields: [ownerUserId], references: [id])
+  marketingConsent   Boolean      @default(false)
+  anonymizedAt       DateTime? // personal data erased on request (NFR-02); row kept for placements / billing
+  optOutToken        String?      @unique // short random id in the SMS removal link (/u/<token>), created at first send
+  createdAt          DateTime     @default(now())
 
   languages  CandidateLanguage[]
   files      CandidateFile[]
